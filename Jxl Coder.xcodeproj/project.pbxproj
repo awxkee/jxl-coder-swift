@@ -1,0 +1,470 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D341F4C52A97FC29003A496C /* Jxl_CoderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D341F4C42A97FC29003A496C /* Jxl_CoderApp.swift */; };
+		D341F4C72A97FC29003A496C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D341F4C62A97FC29003A496C /* ContentView.swift */; };
+		D341F4C92A97FC2A003A496C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D341F4C82A97FC2A003A496C /* Assets.xcassets */; };
+		D341F4CC2A97FC2A003A496C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D341F4CB2A97FC2A003A496C /* Preview Assets.xcassets */; };
+		D3D2B9EB2A9BACF100EBB7A9 /* libjxl_threads.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E62A9BACF000EBB7A9 /* libjxl_threads.xcframework */; };
+		D3D2B9EC2A9BACF100EBB7A9 /* libbrotlidec.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E72A9BACF000EBB7A9 /* libbrotlidec.xcframework */; };
+		D3D2B9EE2A9BACF100EBB7A9 /* libbrotlienc.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E92A9BACF100EBB7A9 /* libbrotlienc.xcframework */; };
+		D3D2B9EF2A9BACF100EBB7A9 /* libbrotlicommon.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9EA2A9BACF100EBB7A9 /* libbrotlicommon.xcframework */; };
+		D3D2B9F52A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm in Sources */ = {isa = PBXBuildFile; fileRef = D3D2B9F42A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm */; };
+		D3D2B9F82A9BAE1C00EBB7A9 /* libjxl.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9F72A9BAE1C00EBB7A9 /* libjxl.xcframework */; };
+		D3D2B9FA2A9BAEB600EBB7A9 /* libhwy.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9F92A9BAEB600EBB7A9 /* libhwy.xcframework */; };
+		D3D2B9FD2A9BAEF300EBB7A9 /* jxl_worker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3D2B9FB2A9BAEF300EBB7A9 /* jxl_worker.cpp */; };
+		D3D2BA002A9BB4AF00EBB7A9 /* JXLCoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D2B9FF2A9BB4AF00EBB7A9 /* JXLCoder.swift */; };
+		D3D2BA022A9BB50F00EBB7A9 /* JXLSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D2BA012A9BB50F00EBB7A9 /* JXLSupport.swift */; };
+		D3D2BA062A9BC06500EBB7A9 /* first.jxl in Resources */ = {isa = PBXBuildFile; fileRef = D3D2BA042A9BC06500EBB7A9 /* first.jxl */; };
+		D3D2BA072A9BC06500EBB7A9 /* second.jxl in Resources */ = {isa = PBXBuildFile; fileRef = D3D2BA052A9BC06500EBB7A9 /* second.jxl */; };
+		D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */ = {isa = PBXBuildFile; fileRef = D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */; };
+		D3D2BA102A9BDADA00EBB7A9 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D341F4C12A97FC29003A496C /* Jxl Coder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Jxl Coder.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D341F4C42A97FC29003A496C /* Jxl_CoderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Jxl_CoderApp.swift; sourceTree = "<group>"; };
+		D341F4C62A97FC29003A496C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D341F4C82A97FC2A003A496C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D341F4CB2A97FC2A003A496C /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		D3D2B9E62A9BACF000EBB7A9 /* libjxl_threads.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libjxl_threads.xcframework; sourceTree = "<group>"; };
+		D3D2B9E72A9BACF000EBB7A9 /* libbrotlidec.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libbrotlidec.xcframework; sourceTree = "<group>"; };
+		D3D2B9E92A9BACF100EBB7A9 /* libbrotlienc.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libbrotlienc.xcframework; sourceTree = "<group>"; };
+		D3D2B9EA2A9BACF100EBB7A9 /* libbrotlicommon.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libbrotlicommon.xcframework; sourceTree = "<group>"; };
+		D3D2B9F22A9BAD4500EBB7A9 /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		D3D2B9F32A9BAD6900EBB7A9 /* Jxl Coder-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Jxl Coder-Bridging-Header.h"; sourceTree = "<group>"; };
+		D3D2B9F42A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = JXLCPlusCoder.mm; sourceTree = "<group>"; };
+		D3D2B9F62A9BAD8C00EBB7A9 /* JXLCPlusCoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JXLCPlusCoder.h; sourceTree = "<group>"; };
+		D3D2B9F72A9BAE1C00EBB7A9 /* libjxl.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libjxl.xcframework; sourceTree = "<group>"; };
+		D3D2B9F92A9BAEB600EBB7A9 /* libhwy.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libhwy.xcframework; sourceTree = "<group>"; };
+		D3D2B9FB2A9BAEF300EBB7A9 /* jxl_worker.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = jxl_worker.cpp; sourceTree = "<group>"; };
+		D3D2B9FC2A9BAEF300EBB7A9 /* jxl_worker.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = jxl_worker.hpp; sourceTree = "<group>"; };
+		D3D2B9FF2A9BB4AF00EBB7A9 /* JXLCoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JXLCoder.swift; sourceTree = "<group>"; };
+		D3D2BA012A9BB50F00EBB7A9 /* JXLSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JXLSupport.swift; sourceTree = "<group>"; };
+		D3D2BA042A9BC06500EBB7A9 /* first.jxl */ = {isa = PBXFileReference; lastKnownFileType = file; path = first.jxl; sourceTree = "<group>"; };
+		D3D2BA052A9BC06500EBB7A9 /* second.jxl */ = {isa = PBXFileReference; lastKnownFileType = file; path = second.jxl; sourceTree = "<group>"; };
+		D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = JXLSystemImage.mm; sourceTree = "<group>"; };
+		D3D2BA0A2A9BD1C200EBB7A9 /* JXLSystemImage.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = JXLSystemImage.hpp; sourceTree = "<group>"; };
+		D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D341F4BE2A97FC29003A496C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3D2B9EE2A9BACF100EBB7A9 /* libbrotlienc.xcframework in Frameworks */,
+				D3D2BA102A9BDADA00EBB7A9 /* Accelerate.framework in Frameworks */,
+				D3D2B9EF2A9BACF100EBB7A9 /* libbrotlicommon.xcframework in Frameworks */,
+				D3D2B9EC2A9BACF100EBB7A9 /* libbrotlidec.xcframework in Frameworks */,
+				D3D2B9EB2A9BACF100EBB7A9 /* libjxl_threads.xcframework in Frameworks */,
+				D3D2B9FA2A9BAEB600EBB7A9 /* libhwy.xcframework in Frameworks */,
+				D3D2B9F82A9BAE1C00EBB7A9 /* libjxl.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D341F4B82A97FC29003A496C = {
+			isa = PBXGroup;
+			children = (
+				D341F4D22A97FC5A003A496C /* Sources */,
+				D341F4C32A97FC29003A496C /* Jxl Coder */,
+				D341F4C22A97FC29003A496C /* Products */,
+				D3D2BA0E2A9BDADA00EBB7A9 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		D341F4C22A97FC29003A496C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D341F4C12A97FC29003A496C /* Jxl Coder.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D341F4C32A97FC29003A496C /* Jxl Coder */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2BA032A9BC05A00EBB7A9 /* Resources */,
+				D3D2B9F32A9BAD6900EBB7A9 /* Jxl Coder-Bridging-Header.h */,
+				D341F4C42A97FC29003A496C /* Jxl_CoderApp.swift */,
+				D341F4C62A97FC29003A496C /* ContentView.swift */,
+				D341F4C82A97FC2A003A496C /* Assets.xcassets */,
+				D341F4CA2A97FC2A003A496C /* Preview Content */,
+			);
+			path = "Jxl Coder";
+			sourceTree = "<group>";
+		};
+		D341F4CA2A97FC2A003A496C /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				D341F4CB2A97FC2A003A496C /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		D341F4D22A97FC5A003A496C /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2B9FE2A9BB4A800EBB7A9 /* JxlCoder */,
+				D3D2B9F02A9BAD0600EBB7A9 /* jxlc */,
+				D3D2B9E52A9BACCE00EBB7A9 /* Frameworks */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		D3D2B9E52A9BACCE00EBB7A9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2B9F92A9BAEB600EBB7A9 /* libhwy.xcframework */,
+				D3D2B9F72A9BAE1C00EBB7A9 /* libjxl.xcframework */,
+				D3D2B9EA2A9BACF100EBB7A9 /* libbrotlicommon.xcframework */,
+				D3D2B9E72A9BACF000EBB7A9 /* libbrotlidec.xcframework */,
+				D3D2B9E92A9BACF100EBB7A9 /* libbrotlienc.xcframework */,
+				D3D2B9E62A9BACF000EBB7A9 /* libjxl_threads.xcframework */,
+			);
+			path = Frameworks;
+			sourceTree = "<group>";
+		};
+		D3D2B9F02A9BAD0600EBB7A9 /* jxlc */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2B9F12A9BAD3800EBB7A9 /* include */,
+				D3D2B9F42A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm */,
+				D3D2B9F62A9BAD8C00EBB7A9 /* JXLCPlusCoder.h */,
+				D3D2B9FB2A9BAEF300EBB7A9 /* jxl_worker.cpp */,
+				D3D2B9FC2A9BAEF300EBB7A9 /* jxl_worker.hpp */,
+				D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */,
+				D3D2BA0A2A9BD1C200EBB7A9 /* JXLSystemImage.hpp */,
+			);
+			path = jxlc;
+			sourceTree = "<group>";
+		};
+		D3D2B9F12A9BAD3800EBB7A9 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2B9F22A9BAD4500EBB7A9 /* module.modulemap */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		D3D2B9FE2A9BB4A800EBB7A9 /* JxlCoder */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2B9FF2A9BB4AF00EBB7A9 /* JXLCoder.swift */,
+				D3D2BA012A9BB50F00EBB7A9 /* JXLSupport.swift */,
+			);
+			path = JxlCoder;
+			sourceTree = "<group>";
+		};
+		D3D2BA032A9BC05A00EBB7A9 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2BA042A9BC06500EBB7A9 /* first.jxl */,
+				D3D2BA052A9BC06500EBB7A9 /* second.jxl */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D3D2BA0E2A9BDADA00EBB7A9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D341F4C02A97FC29003A496C /* Jxl Coder */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D341F4CF2A97FC2A003A496C /* Build configuration list for PBXNativeTarget "Jxl Coder" */;
+			buildPhases = (
+				D341F4BD2A97FC29003A496C /* Sources */,
+				D341F4BE2A97FC29003A496C /* Frameworks */,
+				D341F4BF2A97FC29003A496C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Jxl Coder";
+			productName = "Jxl Coder";
+			productReference = D341F4C12A97FC29003A496C /* Jxl Coder.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D341F4B92A97FC29003A496C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					D341F4C02A97FC29003A496C = {
+						CreatedOnToolsVersion = 14.3.1;
+						LastSwiftMigration = 1430;
+					};
+				};
+			};
+			buildConfigurationList = D341F4BC2A97FC29003A496C /* Build configuration list for PBXProject "Jxl Coder" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D341F4B82A97FC29003A496C;
+			productRefGroup = D341F4C22A97FC29003A496C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D341F4C02A97FC29003A496C /* Jxl Coder */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D341F4BF2A97FC29003A496C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3D2BA062A9BC06500EBB7A9 /* first.jxl in Resources */,
+				D341F4CC2A97FC2A003A496C /* Preview Assets.xcassets in Resources */,
+				D3D2BA072A9BC06500EBB7A9 /* second.jxl in Resources */,
+				D341F4C92A97FC2A003A496C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D341F4BD2A97FC29003A496C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3D2B9F52A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm in Sources */,
+				D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */,
+				D3D2B9FD2A9BAEF300EBB7A9 /* jxl_worker.cpp in Sources */,
+				D3D2BA002A9BB4AF00EBB7A9 /* JXLCoder.swift in Sources */,
+				D3D2BA022A9BB50F00EBB7A9 /* JXLSupport.swift in Sources */,
+				D341F4C72A97FC29003A496C /* ContentView.swift in Sources */,
+				D341F4C52A97FC29003A496C /* Jxl_CoderApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D341F4CD2A97FC2A003A496C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D341F4CE2A97FC2A003A496C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D341F4D02A97FC2A003A496C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Jxl Coder/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.radzivonbartoshyk.Jxl-Coder";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "JXL Coder/Jxl Coder-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D341F4D12A97FC2A003A496C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Jxl Coder/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.radzivonbartoshyk.Jxl-Coder";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "JXL Coder/Jxl Coder-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D341F4BC2A97FC29003A496C /* Build configuration list for PBXProject "Jxl Coder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D341F4CD2A97FC2A003A496C /* Debug */,
+				D341F4CE2A97FC2A003A496C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D341F4CF2A97FC2A003A496C /* Build configuration list for PBXNativeTarget "Jxl Coder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D341F4D02A97FC2A003A496C /* Debug */,
+				D341F4D12A97FC2A003A496C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D341F4B92A97FC29003A496C /* Project object */;
+}
