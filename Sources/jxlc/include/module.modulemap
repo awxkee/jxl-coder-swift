@@ -1,0 +1,4 @@
+module jxlc {
+    umbrella header "../JXLCPlusCoder.h"
+    export *
+}
