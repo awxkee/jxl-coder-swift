@@ -22,7 +22,7 @@ at the time of writing.
 ## Usage
 
 ```swift
-import JXL
+import JxlCoder
 // Decompress data
 let uiImage: UIImage? = JXLCoder.decode(data: Data()) // or any max CGSize of image
 // Compress
@@ -32,6 +32,7 @@ let data: Data = try JXLCoder.encode(data: UIImage())
 ## Nuke Plugin
 
 If you wish to use `JXL` with <a href="https://github.com/kean/Nuke" target="_blank">`Nuke`</a> you may add `JxlCoder` library to project and activate the plugin on app init
+### Use code below in your project or add a pod `JxlNukePlugin`
 ```swift
 import Nuke
 #if canImport(JxlCoder)
@@ -87,6 +88,7 @@ extension JxlNukePlugin {
 ```
 
 ## Jxl SDWebImagePlugin
+### Use provided code or include pod `JxlSDWebImageCoder`
 ```swift
 #if canImport(JxlCoder)
 import JxlCoder
