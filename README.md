@@ -43,26 +43,30 @@ public final class JxlNukePlugin: Nuke.ImageDecoding {
     public init() {
     }
 
-    public func decode(_ data: Data) throws -> ImageContainer {
-        guard try JXLCoder.isJXL(data: data) else { throw JxlNukePluginDecodeError(failureReason: "Provided data is not JXL") }
-        let image = try JXLCoder.decode(data: data)
+    public func decode(_ data: Data) -> ImageContainer? {
+        guard (try? JXLCoder.isJXL(data: data)) ?? false else { return nil }
+        guard let image = try? JXLCoder.decode(data: data) else {
+            return nil
+        }
         return ImageContainer(image: image)
     }
 
     public func decodePartiallyDownloadedData(_ data: Data) -> ImageContainer? {
         return nil
     }
+}
 
-    public struct JxlNukePluginDecodeError: LocalizedError, CustomNSError {
-        public var errorDescription: String {
-            "JXL file cannot be decoded"
+// MARK: - check JXL format data.
+extension JxlNukePlugin {
+
+    public static func enable() {
+        Nuke.ImageDecoderRegistry.shared.register { (context) -> ImageDecoding? in
+            JxlNukePlugin.enable(context: context)
         }
+    }
 
-        public var failureReason: String
-
-        public var errorUserInfo: [String : Any] {
-            [NSLocalizedDescriptionKey: "JXL file cannot be decoded", NSLocalizedFailureErrorKey: failureReason]
-        }
+    public static func enable(context: Nuke.ImageDecodingContext) -> Nuke.ImageDecoding? {
+        return try? JXLCoder.isJXL(data: context.data) ? JxlNukePlugin() : nil
     }
 }
 
@@ -89,29 +93,29 @@ import JxlCoder
 #endif
 import SDWebImage
 
-class JxlSDWebImageCoder: NSObject, SDImageCoder {
+public class JxlSDWebImageCoder: NSObject, SDImageCoder {
     public override init() {
     }
-    
-    func canDecode(from data: Data?) -> Bool {
+
+    public func canDecode(from data: Data?) -> Bool {
         guard let data else {
             return false
         }
         return (try? JXLCoder.isJXL(data: data)) ?? false
     }
 
-    func decodedImage(with data: Data?, options: [SDImageCoderOption : Any]? = nil) -> UIImage? {
+    public func decodedImage(with data: Data?, options: [SDImageCoderOption : Any]? = nil) -> UIImage? {
         guard let data else {
             return nil
         }
         return try? JXLCoder.decode(data: data)
     }
 
-    func canEncode(to format: SDImageFormat) -> Bool {
+    public func canEncode(to format: SDImageFormat) -> Bool {
         true
     }
 
-    func encodedData(with image: UIImage?, format: SDImageFormat, options: [SDImageCoderOption : Any]? = nil) -> Data? {
+    public func encodedData(with image: UIImage?, format: SDImageFormat, options: [SDImageCoderOption : Any]? = nil) -> Data? {
         guard let image else {
             return nil
         }

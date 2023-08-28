@@ -16,26 +16,16 @@ public final class JxlNukePlugin: Nuke.ImageDecoding {
     public init() {
     }
 
-    public func decode(_ data: Data) throws -> ImageContainer {
-        guard try JXLCoder.isJXL(data: data) else { throw JxlNukePluginDecodeError(failureReason: "Provided data is not JXL") }
-        let image = try JXLCoder.decode(data: data)
+    public func decode(_ data: Data) -> ImageContainer? {
+        guard (try? JXLCoder.isJXL(data: data)) ?? false else { return nil }
+        guard let image = try? JXLCoder.decode(data: data) else {
+            return nil
+        }
         return ImageContainer(image: image)
     }
 
     public func decodePartiallyDownloadedData(_ data: Data) -> ImageContainer? {
         return nil
-    }
-
-    public struct JxlNukePluginDecodeError: LocalizedError, CustomNSError {
-        public var errorDescription: String {
-            "JXL file cannot be decoded"
-        }
-
-        public var failureReason: String
-
-        public var errorUserInfo: [String : Any] {
-            [NSLocalizedDescriptionKey: "JXL file cannot be decoded", NSLocalizedFailureErrorKey: failureReason]
-        }
     }
 }
 
