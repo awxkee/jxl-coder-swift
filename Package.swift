@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "jxlcoder",
+    name: "JxlCoder",
     platforms: [.iOS(.v11), .macOS(.v11)],
     products: [
         .library(
@@ -13,7 +13,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "jxlcoder",
+            name: "JxlCoder",
             dependencies: ["jxlc"],
             path: "Sources/JxlCoder"),
         .target(name: "jxlc",

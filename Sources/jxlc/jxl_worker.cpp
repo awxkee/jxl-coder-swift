@@ -6,14 +6,14 @@
 //
 
 #include "jxl_worker.hpp"
-#include "jxl/decode.h"
-#include "jxl/decode_cxx.h"
+#include <jxl/decode.h>
+#include <jxl/decode_cxx.h>
+#include <jxl/resizable_parallel_runner.h>
+#include <jxl/resizable_parallel_runner_cxx.h>
+#include <jxl/encode.h>
+#include <jxl/encode_cxx.h>
+#include <jxl/thread_parallel_runner_cxx.h>
 #include <vector>
-#include "jxl/resizable_parallel_runner.h"
-#include "jxl/resizable_parallel_runner_cxx.h"
-#include "jxl/encode.h"
-#include "jxl/encode_cxx.h"
-#include "jxl/thread_parallel_runner_cxx.h"
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,
