@@ -19,7 +19,7 @@ s.public_header_files = 'Sources/jxlc/**.h', 'Sources/jxlc/**.hpp', 'Headers/**/
 s.project_header_files = 'Sources/jxlc/jxl_worker.hpp'
 s.pod_target_xcconfig = {
     'OTHER_CXXFLAGS' => '$(inherited) -std=c++20',
-    'HEADER_SEARCH_PATHS' => '$(inherited) $(PODS_ROOT)/Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers"',
     'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -fmodules -fcxx-modules'
 }
 s.preserve_paths = "Sources/Frameworks/*.xcframework", "Sources/Frameworks/*.xcframework/**/Headers", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jxl", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jpegli"
