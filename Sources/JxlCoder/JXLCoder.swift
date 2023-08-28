@@ -10,8 +10,36 @@ import Foundation
 import jxlc
 #endif
 
+public struct AVIFNukePluginDecodeError: LocalizedError, CustomNSError {
+    public var errorDescription: String? {
+        "JXL file cannot be decoded"
+    }
+
+    public var errorUserInfo: [String : Any] {
+        [NSLocalizedDescriptionKey: "JXL file cannot be decoded"]
+    }
+}
+
 public class JXLCoder {
     private static let shared = JXLCPlusCoder()
+    private static let magic1 = Data([0xFF, 0x0A])
+    private static let magic2 = Data([0x0, 0x0, 0x0, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A])
+
+    private static func startsWith(_ prefix: Data, ofLength length: Int, in data: Data) -> Bool {
+        guard length <= data.count else {
+            return false // The provided length is greater than the data length
+        }
+
+        let subData = data.prefix(length)
+        return subData == prefix
+    }
+
+    /***
+     - Returns: If provided data is possible valid JXL image
+     **/
+    public static func isJXL(data: Data) throws -> Bool {
+        return startsWith(magic1, ofLength: magic1.count, in: data) || startsWith(magic2, ofLength: magic1.count, in: data)
+    }
 
     /***
      - Returns: Decoded JXL image if this is the valid one

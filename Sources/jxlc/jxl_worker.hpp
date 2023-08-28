@@ -9,7 +9,10 @@
 #define jxl_worker_hpp
 
 #include <stdio.h>
+#ifdef __cplusplus
 #include <vector>
+#endif
+#ifdef __cplusplus
 
 enum jxl_colorspace {
     rgb = 1,
@@ -35,5 +38,6 @@ public:
     JXLDataWrapper() {}
     std::vector<uint8_t> data;
 };
+#endif
 
 #endif /* jxl_worker_hpp */
