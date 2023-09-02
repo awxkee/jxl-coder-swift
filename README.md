@@ -1,7 +1,7 @@
 # JxlCoder
 
 ## What's This?
-This package is provides support for JXL images for all apple platforms. Supports encode JXL and decode JXL images in convinient and fast way
+This package is provides support for JXL ( JPEG XL ) images for all apple platforms. Supports encode JXL and decode JXL images in convinient and fast way
 
 A package to decode JXL on iOS, MacOS or encode JXL images. Also provider JXL support for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support for JXL images
 
@@ -133,6 +133,9 @@ SDImageCodersManager.shared.addCoder(JxlSDWebImageCoder())
 Currently, JXL nuke plugin do not support animated JXLs so you have to do it yourself
 
 ## Disclaimer
+The JPEG XL call for proposals talks about the requirement of a next generation image compression standard with substantially better compression efficiency (60% improvement) comparing to JPEG. The standard is expected to outperform the still image compression performance shown by HEIC, AVIF, WebP, and JPEG 2000. It also provides efficient lossless recompression options for images in the traditional/legacy JPEG format.
+
+JPEG XL supports lossy compression and lossless compression of ultra-high-resolution images (up to 1 terapixel), up to 32 bits per component, up to 4099 components (including alpha transparency), animated images, and embedded previews. It has features aimed at web delivery such as advanced progressive decoding[13] and minimal header overhead, as well as features aimed at image editing and digital printing, such as support for multiple layers, CMYK, and spot colors. It is specifically designed to seamlessly handle wide color gamut color spaces with high dynamic range such as Rec. 2100 with the PQ or HLG transfer function. 
 
 ## TODO
 - [ ] Tests
