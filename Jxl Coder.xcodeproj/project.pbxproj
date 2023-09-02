@@ -13,9 +13,7 @@
 		D341F4CC2A97FC2A003A496C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D341F4CB2A97FC2A003A496C /* Preview Assets.xcassets */; };
 		D3B84ACC2A9C580800DAFE87 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = D3B84ACB2A9C580800DAFE87 /* Nuke */; };
 		D3B84ACE2A9C580800DAFE87 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = D3B84ACD2A9C580800DAFE87 /* NukeUI */; };
-		D3B84AD02A9C581500DAFE87 /* JxlNukePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B84ACF2A9C581500DAFE87 /* JxlNukePlugin.swift */; };
 		D3B84AD32A9C58EB00DAFE87 /* SDWebImage in Frameworks */ = {isa = PBXBuildFile; productRef = D3B84AD22A9C58EB00DAFE87 /* SDWebImage */; };
-		D3B84AD52A9C591600DAFE87 /* JxlSDWebImageCoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B84AD42A9C591600DAFE87 /* JxlSDWebImageCoder.swift */; };
 		D3D2B9EB2A9BACF100EBB7A9 /* libjxl_threads.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E62A9BACF000EBB7A9 /* libjxl_threads.xcframework */; };
 		D3D2B9EC2A9BACF100EBB7A9 /* libbrotlidec.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E72A9BACF000EBB7A9 /* libbrotlidec.xcframework */; };
 		D3D2B9EE2A9BACF100EBB7A9 /* libbrotlienc.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2B9E92A9BACF100EBB7A9 /* libbrotlienc.xcframework */; };
@@ -38,8 +36,6 @@
 		D341F4C62A97FC29003A496C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D341F4C82A97FC2A003A496C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D341F4CB2A97FC2A003A496C /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		D3B84ACF2A9C581500DAFE87 /* JxlNukePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JxlNukePlugin.swift; sourceTree = "<group>"; };
-		D3B84AD42A9C591600DAFE87 /* JxlSDWebImageCoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JxlSDWebImageCoder.swift; sourceTree = "<group>"; };
 		D3B84AD62A9C5FE700DAFE87 /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D3B84AD72A9C636E00DAFE87 /* JXLCoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JXLCoder.h; sourceTree = "<group>"; };
 		D3D2B9E62A9BACF000EBB7A9 /* libjxl_threads.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libjxl_threads.xcframework; sourceTree = "<group>"; };
@@ -87,8 +83,6 @@
 		D341F4B82A97FC29003A496C = {
 			isa = PBXGroup;
 			children = (
-				D3B84AD42A9C591600DAFE87 /* JxlSDWebImageCoder.swift */,
-				D3B84ACF2A9C581500DAFE87 /* JxlNukePlugin.swift */,
 				D341F4D22A97FC5A003A496C /* Sources */,
 				D341F4C32A97FC29003A496C /* Jxl Coder */,
 				D341F4C22A97FC29003A496C /* Products */,
@@ -290,12 +284,10 @@
 			files = (
 				D3D2B9F52A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm in Sources */,
 				D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */,
-				D3B84AD52A9C591600DAFE87 /* JxlSDWebImageCoder.swift in Sources */,
 				D3D2B9FD2A9BAEF300EBB7A9 /* jxl_worker.cpp in Sources */,
 				D3D2BA002A9BB4AF00EBB7A9 /* JXLCoder.swift in Sources */,
 				D3D2BA022A9BB50F00EBB7A9 /* JXLSupport.swift in Sources */,
 				D341F4C72A97FC29003A496C /* ContentView.swift in Sources */,
-				D3B84AD02A9C581500DAFE87 /* JxlNukePlugin.swift in Sources */,
 				D341F4C52A97FC29003A496C /* Jxl_CoderApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -8,8 +8,8 @@ let package = Package(
     platforms: [.iOS(.v11), .macOS(.v11)],
     products: [
         .library(
-            name: "jxlcoder",
-            targets: ["jxlcoder"]),
+            name: "JxlCoder",
+            targets: ["JxlCoder"]),
     ],
     targets: [
         .target(
