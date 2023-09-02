@@ -11,10 +11,16 @@
 #import "jxl_worker.hpp"
 #import <Accelerate/Accelerate.h>
 
-static void JXLCGDataProviderReleaseDataCallback(void *info, const void *data, size_t size) {
-    JXLDataWrapper* dataWrapper = static_cast<JXLDataWrapper*>(info);
+static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
+    auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);
     delete dataWrapper;
 }
+
+static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
+    auto dataWrapper = static_cast<JXLDataWrapper<uint8_t>*>(info);
+    delete dataWrapper;
+}
+
 
 std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width, int height) {
     std::vector<uint8_t> dstVector;
@@ -98,7 +104,7 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         pixels = resizedVector;
     }
 
-    JXLDataWrapper* wrapper = new JXLDataWrapper();
+    JXLDataWrapper<uint8_t>* wrapper = new JXLDataWrapper<uint8_t>();
     auto encoded = EncodeJxlOneshot(pixels, width, height, &wrapper->data, jColorspace, jCompressionOption, compressionDistance);
     if (!encoded) {
         delete wrapper;
@@ -196,7 +202,7 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         return nil;
     }
 
-    JXLDataWrapper* dataWrapper = new JXLDataWrapper();
+    auto dataWrapper = new JXLDataWrapper<uint8_t>();
     std::vector<uint8_t> iccProfile;
     size_t xSize, ySize;
     auto decoded = DecodeJpegXlOneShot(imageData.data(), imageData.size(),
@@ -207,10 +213,22 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         return nil;
     }
 
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    int flags = (int)kCGBitmapByteOrder32Big | (int)kCGImageAlphaLast;
+    CGColorSpaceRef colorSpace;
+    if (iccProfile.size() > 0) {
+        CFDataRef iccData = CFDataCreate(kCFAllocatorDefault, iccProfile.data(), iccProfile.size());
+        colorSpace = CGColorSpaceCreateWithICCData(iccData);
+        CFRelease(iccData);
+    } else {
+        colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+
+    if (!colorSpace) {
+        colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+
+    int flags = (int)kCGImageByteOrder32Big | (int)kCGImageAlphaLast;
     CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper, dataWrapper->data.data(),
-                                                              dataWrapper->data.size(), JXLCGDataProviderReleaseDataCallback);
+                                                              dataWrapper->data.size(), JXLCGData8ProviderReleaseDataCallback);
     if (!provider) {
         delete dataWrapper;
         *error = [[NSError alloc] initWithDomain:@"JXLCoder"

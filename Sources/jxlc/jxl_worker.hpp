@@ -33,10 +33,11 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       jxl_colorspace colorspace, jxl_compression_option compression_option,
                       float compression_distance);
 
+template <typename DataType>
 class JXLDataWrapper {
 public:
     JXLDataWrapper() {}
-    std::vector<uint8_t> data;
+    std::vector<DataType> data;
 };
 #endif
 

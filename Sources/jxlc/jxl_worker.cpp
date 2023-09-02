@@ -77,10 +77,10 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 JxlDecoderImageOutBufferSize(dec.get(), &format, &buffer_size)) {
                 return false;
             }
-            if (buffer_size != *xsize * *ysize * 4) {
+            if (buffer_size != *xsize * *ysize * 4 * sizeof(uint8_t)) {
                 return false;
             }
-            pixels->resize(*xsize * *ysize * 4);
+            pixels->resize(*xsize * *ysize * 4 * sizeof(uint8_t));
             void *pixels_buffer = (void *) pixels->data();
             size_t pixels_buffer_size = pixels->size() * sizeof(uint8_t);
             if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(dec.get(), &format,
