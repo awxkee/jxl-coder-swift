@@ -231,7 +231,7 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
     if (useFloats) {
         flags = (int)kCGImageByteOrder16Little | (int)kCGImageAlphaLast | (int)kCGBitmapFloatComponents;
     } else {
-        flags = (int)kCGImageByteOrder32Big | (int)kCGImageAlphaLast;
+        flags = (int)kCGImageByteOrder32Little | (int)kCGImageAlphaLast;
     }
     CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper,
                                                               dataWrapper->data.data(),
