@@ -11,7 +11,7 @@ Package based on `libjxl`
 </br>
 Main aim of the project is to use `JXL` image on all Apple platforms etc with usable speed and convenience
 
-Precompiled to serve JXL on iOS 11+, Mac OS 11+
+Precompiled to serve JXL (Jpeg XL) on iOS 11+, Mac OS 11+
 
 ## Installation
 
