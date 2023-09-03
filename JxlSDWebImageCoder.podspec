@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = 'JxlSDWebImageCoder'
-    s.version          = '1.0.6'
+    s.version          = '1.0.7'
     s.summary          = 'JXL encoder and decoder for SDWebImage'
     s.description      = 'JXL plugin for SDWebImage in iOS and MacOS'
     s.homepage         = 'https://github.com/awxkee/jxl-coder-swift'
