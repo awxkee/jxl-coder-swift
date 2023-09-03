@@ -205,8 +205,9 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
     auto dataWrapper = new JXLDataWrapper<uint8_t>();
     std::vector<uint8_t> iccProfile;
     size_t xSize, ySize;
+    bool useFloats;
     auto decoded = DecodeJpegXlOneShot(imageData.data(), imageData.size(),
-                                       &dataWrapper->data, &xSize, &ySize, &iccProfile);
+                                       &dataWrapper->data, &xSize, &ySize, &iccProfile, &useFloats);
     if (!decoded) {
         delete dataWrapper;
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
@@ -226,9 +227,16 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         colorSpace = CGColorSpaceCreateDeviceRGB();
     }
 
-    int flags = (int)kCGImageByteOrder32Big | (int)kCGImageAlphaLast;
-    CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper, dataWrapper->data.data(),
-                                                              dataWrapper->data.size(), JXLCGData8ProviderReleaseDataCallback);
+    int flags;
+    if (useFloats) {
+        flags = (int)kCGImageByteOrder16Little | (int)kCGImageAlphaLast | (int)kCGBitmapFloatComponents;
+    } else {
+        flags = (int)kCGImageByteOrder32Big | (int)kCGImageAlphaLast;
+    }
+    CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper,
+                                                              dataWrapper->data.data(),
+                                                              dataWrapper->data.size(),
+                                                              JXLCGData8ProviderReleaseDataCallback);
     if (!provider) {
         delete dataWrapper;
         *error = [[NSError alloc] initWithDomain:@"JXLCoder"
@@ -237,7 +245,9 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         return NULL;
     }
 
-    CGImageRef imageRef = CGImageCreate(xSize, ySize, 8, 32, 4*xSize, colorSpace, flags, provider, NULL, false, kCGRenderingIntentDefault);
+    CGImageRef imageRef = CGImageCreate(xSize, ySize, useFloats ? 16 : 8,
+                                        useFloats ? 64 : 32, 4*xSize * (useFloats ? sizeof(uint16_t) : sizeof(uint8_t)),
+                                        colorSpace, flags, provider, NULL, false, kCGRenderingIntentDefault);
     if (!imageRef) {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder"
                                             code:500

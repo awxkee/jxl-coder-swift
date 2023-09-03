@@ -26,7 +26,8 @@ enum jxl_compression_option {
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,
-                         size_t *ysize, std::vector<uint8_t> *icc_profile);
+                         size_t *ysize, std::vector<uint8_t> *icc_profile,
+                         bool* useFloats);
 bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysize);
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,

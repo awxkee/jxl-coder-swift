@@ -28,7 +28,7 @@ public class JXLCoder {
      - Returns: If provided data is possible valid JXL image
      **/
     public static func isJXL(data: Data) throws -> Bool {
-        return startsWith(magic1, ofLength: magic1.count, in: data) || startsWith(magic2, ofLength: magic1.count, in: data)
+        return startsWith(magic1, ofLength: magic1.count, in: data) || startsWith(magic2, ofLength: magic2.count, in: data)
     }
 
     /***

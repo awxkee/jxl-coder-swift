@@ -17,7 +17,8 @@
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,
-                         size_t *ysize, std::vector<uint8_t> *icc_profile) {
+                         size_t *ysize, std::vector<uint8_t> *icc_profile,
+                         bool* useFloats) {
     // Multi-threaded parallel runner.
     auto runner = JxlResizableParallelRunnerMake(nullptr);
 
@@ -36,10 +37,13 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
     }
 
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_BIG_ENDIAN, 0};
+    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_LITTLE_ENDIAN, 0};
 
     JxlDecoderSetInput(dec.get(), jxl, size);
     JxlDecoderCloseInput(dec.get());
+    int bitDepth = 8;
+    *useFloats = false;
+    bool hdrImage = false;
 
     for (;;) {
         JxlDecoderStatus status = JxlDecoderProcessInput(dec.get());
@@ -54,6 +58,14 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             }
             *xsize = info.xsize;
             *ysize = info.ysize;
+            bitDepth = info.bits_per_sample;
+            if (bitDepth > 8) {
+                *useFloats = true;
+                hdrImage = true;
+                format = { 4, JXL_TYPE_FLOAT16, JXL_LITTLE_ENDIAN, 0 };
+            } else {
+                *useFloats = false;
+            }
             JxlResizableParallelRunnerSetThreads(
                     runner.get(),
                     JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize));
@@ -77,13 +89,15 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 JxlDecoderImageOutBufferSize(dec.get(), &format, &buffer_size)) {
                 return false;
             }
-            if (buffer_size != *xsize * *ysize * 4 * sizeof(uint8_t)) {
+            if (buffer_size != *xsize * *ysize * 4 * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t))) {
                 return false;
             }
-            pixels->resize(*xsize * *ysize * 4 * sizeof(uint8_t));
+            pixels->resize(*xsize * *ysize * 4 * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t)));
             void *pixels_buffer = (void *) pixels->data();
-            size_t pixels_buffer_size = pixels->size() * sizeof(uint8_t);
-            if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(dec.get(), &format,
+            size_t pixels_buffer_size = pixels->size() * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t));
+            
+            if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(dec.get(),
+                                                               &format,
                                                                pixels_buffer,
                                                                pixels_buffer_size)) {
                 return false;

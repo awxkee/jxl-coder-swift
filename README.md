@@ -5,6 +5,8 @@ This package is provides support for JXL ( JPEG XL ) images for all apple platfo
 
 A package to decode JXL on iOS, MacOS or encode JXL images. Also provider JXL support for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support for JXL images
 
+Supported ICC Profiles and HDR images.
+
 Package based on `libjxl`
 </br>
 Main aim of the project is to use `JXL` image on all Apple platforms etc with usable speed and convenience
