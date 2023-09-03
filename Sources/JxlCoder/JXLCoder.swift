@@ -10,16 +10,6 @@ import Foundation
 import jxlc
 #endif
 
-public struct AVIFNukePluginDecodeError: LocalizedError, CustomNSError {
-    public var errorDescription: String? {
-        "JXL file cannot be decoded"
-    }
-
-    public var errorUserInfo: [String : Any] {
-        [NSLocalizedDescriptionKey: "JXL file cannot be decoded"]
-    }
-}
-
 public class JXLCoder {
     private static let shared = JXLCPlusCoder()
     private static let magic1 = Data([0xFF, 0x0A])
@@ -114,5 +104,12 @@ public class JXLCoder {
     public static func getSize(data: Data) throws -> CGSize {
         let srcStream = InputStream(data: data)
         return try getSize(srcStream: srcStream)
+    }
+
+    /**
+     - Returns: Uniform type identifier
+     **/
+    public static func utiIdentifier() -> String {
+        "dyn.ah62d4rv4ge80y8dq"
     }
 }

@@ -28,6 +28,7 @@
 		D3D2BA072A9BC06500EBB7A9 /* second.jxl in Resources */ = {isa = PBXBuildFile; fileRef = D3D2BA052A9BC06500EBB7A9 /* second.jxl */; };
 		D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */ = {isa = PBXBuildFile; fileRef = D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */; };
 		D3D2BA102A9BDADA00EBB7A9 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */; };
+		D3D55DAD2AA4D0E800EA7CB0 /* JxlNukePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +58,7 @@
 		D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = JXLSystemImage.mm; sourceTree = "<group>"; };
 		D3D2BA0A2A9BD1C200EBB7A9 /* JXLSystemImage.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = JXLSystemImage.hpp; sourceTree = "<group>"; };
 		D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = JxlNukePlugin.swift; path = JxlNukePlugin/JxlNukePlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +85,7 @@
 		D341F4B82A97FC29003A496C = {
 			isa = PBXGroup;
 			children = (
+				D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */,
 				D341F4D22A97FC5A003A496C /* Sources */,
 				D341F4C32A97FC29003A496C /* Jxl Coder */,
 				D341F4C22A97FC29003A496C /* Products */,
@@ -288,6 +291,7 @@
 				D3D2BA002A9BB4AF00EBB7A9 /* JXLCoder.swift in Sources */,
 				D3D2BA022A9BB50F00EBB7A9 /* JXLSupport.swift in Sources */,
 				D341F4C72A97FC29003A496C /* ContentView.swift in Sources */,
+				D3D55DAD2AA4D0E800EA7CB0 /* JxlNukePlugin.swift in Sources */,
 				D341F4C52A97FC29003A496C /* Jxl_CoderApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

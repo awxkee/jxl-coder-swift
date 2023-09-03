@@ -34,22 +34,14 @@ let data: Data = try JXLCoder.encode(data: UIImage())
 If you wish to use `JXL` with <a href="https://github.com/kean/Nuke" target="_blank">`Nuke`</a> you may add `JxlCoder` library to project and activate the plugin on app init
 ### Use code below in your project or add a pod `JxlNukePlugin`
 ```swift
-import Nuke
-#if canImport(JxlCoder)
-import JxlCoder
-#endif
-
 public final class JxlNukePlugin: Nuke.ImageDecoding {
-
-    public init() {
+    public func decode(_ data: Data) throws -> Nuke.ImageContainer {
+        guard try JXLCoder.isJXL(data: data) else { throw JXLNukePluginDecodeError() }
+        let image = try JXLCoder.decode(data: data)
+        return ImageContainer(image: image)
     }
 
-    public func decode(_ data: Data) -> ImageContainer? {
-        guard (try? JXLCoder.isJXL(data: data)) ?? false else { return nil }
-        guard let image = try? JXLCoder.decode(data: data) else {
-            return nil
-        }
-        return ImageContainer(image: image)
+    public init() {
     }
 
     public func decodePartiallyDownloadedData(_ data: Data) -> ImageContainer? {
@@ -57,17 +49,13 @@ public final class JxlNukePlugin: Nuke.ImageDecoding {
     }
 }
 
-// MARK: - check JXL format data.
-extension JxlNukePlugin {
-
-    public static func enable() {
-        Nuke.ImageDecoderRegistry.shared.register { (context) -> ImageDecoding? in
-            JxlNukePlugin.enable(context: context)
-        }
+public struct JXLNukePluginDecodeError: LocalizedError, CustomNSError {
+    public var errorDescription: String? {
+        "JXL file cannot be decoded"
     }
 
-    public static func enable(context: Nuke.ImageDecodingContext) -> Nuke.ImageDecoding? {
-        return try? JXLCoder.isJXL(data: context.data) ? JxlNukePlugin() : nil
+    public var errorUserInfo: [String : Any] {
+        [NSLocalizedDescriptionKey: "JXL file cannot be decoded"]
     }
 }
 
