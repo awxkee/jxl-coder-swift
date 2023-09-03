@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3F14958E227DEE19A1D12A69 /* Pods_Jxl_Coder.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C1D15BFF370F6FA27EA6D7E /* Pods_Jxl_Coder.framework */; };
 		D341F4C52A97FC29003A496C /* Jxl_CoderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D341F4C42A97FC29003A496C /* Jxl_CoderApp.swift */; };
 		D341F4C72A97FC29003A496C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D341F4C62A97FC29003A496C /* ContentView.swift */; };
 		D341F4C92A97FC2A003A496C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D341F4C82A97FC2A003A496C /* Assets.xcassets */; };
@@ -29,9 +30,12 @@
 		D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */ = {isa = PBXBuildFile; fileRef = D3D2BA082A9BD1B600EBB7A9 /* JXLSystemImage.mm */; };
 		D3D2BA102A9BDADA00EBB7A9 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */; };
 		D3D55DAD2AA4D0E800EA7CB0 /* JxlNukePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */; };
+		D3D55DB12AA4DBBD00EA7CB0 /* JxlSDWebImageCoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D55DB02AA4DBBD00EA7CB0 /* JxlSDWebImageCoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		028C5ED4E4E827F5E76488BA /* Pods-Jxl Coder.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Jxl Coder.release.xcconfig"; path = "Target Support Files/Pods-Jxl Coder/Pods-Jxl Coder.release.xcconfig"; sourceTree = "<group>"; };
+		0C1D15BFF370F6FA27EA6D7E /* Pods_Jxl_Coder.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Jxl_Coder.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D341F4C12A97FC29003A496C /* Jxl Coder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Jxl Coder.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D341F4C42A97FC29003A496C /* Jxl_CoderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Jxl_CoderApp.swift; sourceTree = "<group>"; };
 		D341F4C62A97FC29003A496C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -59,6 +63,8 @@
 		D3D2BA0A2A9BD1C200EBB7A9 /* JXLSystemImage.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = JXLSystemImage.hpp; sourceTree = "<group>"; };
 		D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = JxlNukePlugin.swift; path = JxlNukePlugin/JxlNukePlugin.swift; sourceTree = "<group>"; };
+		D3D55DB02AA4DBBD00EA7CB0 /* JxlSDWebImageCoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = JxlSDWebImageCoder.swift; path = JxlSDWebImageCoder/JxlSDWebImageCoder.swift; sourceTree = "<group>"; };
+		EA293D93FDD9F3C620CEA63F /* Pods-Jxl Coder.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Jxl Coder.debug.xcconfig"; path = "Target Support Files/Pods-Jxl Coder/Pods-Jxl Coder.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,20 +82,32 @@
 				D3B84ACE2A9C580800DAFE87 /* NukeUI in Frameworks */,
 				D3D2B9F82A9BAE1C00EBB7A9 /* libjxl.xcframework in Frameworks */,
 				D3B84ACC2A9C580800DAFE87 /* Nuke in Frameworks */,
+				3F14958E227DEE19A1D12A69 /* Pods_Jxl_Coder.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		417B4E0BE661D26683F15435 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				EA293D93FDD9F3C620CEA63F /* Pods-Jxl Coder.debug.xcconfig */,
+				028C5ED4E4E827F5E76488BA /* Pods-Jxl Coder.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		D341F4B82A97FC29003A496C = {
 			isa = PBXGroup;
 			children = (
+				D3D55DB02AA4DBBD00EA7CB0 /* JxlSDWebImageCoder.swift */,
 				D3D55DAC2AA4D0E800EA7CB0 /* JxlNukePlugin.swift */,
 				D341F4D22A97FC5A003A496C /* Sources */,
 				D341F4C32A97FC29003A496C /* Jxl Coder */,
 				D341F4C22A97FC29003A496C /* Products */,
 				D3D2BA0E2A9BDADA00EBB7A9 /* Frameworks */,
+				417B4E0BE661D26683F15435 /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -199,6 +217,7 @@
 			isa = PBXGroup;
 			children = (
 				D3D2BA0F2A9BDADA00EBB7A9 /* Accelerate.framework */,
+				0C1D15BFF370F6FA27EA6D7E /* Pods_Jxl_Coder.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -210,9 +229,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D341F4CF2A97FC2A003A496C /* Build configuration list for PBXNativeTarget "Jxl Coder" */;
 			buildPhases = (
+				CF73E12849CFB0063FE0F9AD /* [CP] Check Pods Manifest.lock */,
 				D341F4BD2A97FC29003A496C /* Sources */,
 				D341F4BE2A97FC29003A496C /* Frameworks */,
 				D341F4BF2A97FC29003A496C /* Resources */,
+				449D404A6736639C36881248 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -280,6 +301,48 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		449D404A6736639C36881248 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Jxl Coder/Pods-Jxl Coder-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Jxl Coder/Pods-Jxl Coder-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Jxl Coder/Pods-Jxl Coder-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		CF73E12849CFB0063FE0F9AD /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Jxl Coder-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		D341F4BD2A97FC29003A496C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -287,6 +350,7 @@
 			files = (
 				D3D2B9F52A9BAD6A00EBB7A9 /* JXLCPlusCoder.mm in Sources */,
 				D3D2BA092A9BD1B600EBB7A9 /* JXLSystemImage.mm in Sources */,
+				D3D55DB12AA4DBBD00EA7CB0 /* JxlSDWebImageCoder.swift in Sources */,
 				D3D2B9FD2A9BAEF300EBB7A9 /* jxl_worker.cpp in Sources */,
 				D3D2BA002A9BB4AF00EBB7A9 /* JXLCoder.swift in Sources */,
 				D3D2BA022A9BB50F00EBB7A9 /* JXLSupport.swift in Sources */,
@@ -415,6 +479,7 @@
 		};
 		D341F4D02A97FC2A003A496C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EA293D93FDD9F3C620CEA63F /* Pods-Jxl Coder.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -446,6 +511,7 @@
 		};
 		D341F4D12A97FC2A003A496C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 028C5ED4E4E827F5E76488BA /* Pods-Jxl Coder.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

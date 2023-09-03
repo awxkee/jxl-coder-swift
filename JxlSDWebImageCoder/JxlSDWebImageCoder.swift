@@ -10,7 +10,17 @@ import Foundation
 import JxlCoder
 #endif
 import SDWebImage
+#if !os(macOS)
 import UIKit
+import UIKit
+/// Alias for `UIImage`.
+public typealias JxlPlatformImage = UIImage
+#else
+import AppKit.NSImage
+/// Alias for `NSImage`.
+public typealias JxlPlatformImage = NSImage
+#endif
+
 
 public class JxlSDWebImageCoder: NSObject, SDImageCoder {
     public override init() {
@@ -23,7 +33,7 @@ public class JxlSDWebImageCoder: NSObject, SDImageCoder {
         return (try? JXLCoder.isJXL(data: data)) ?? false
     }
 
-    public func decodedImage(with data: Data?, options: [SDImageCoderOption : Any]? = nil) -> UIImage? {
+    public func decodedImage(with data: Data?, options: [SDImageCoderOption : Any]? = nil) -> JxlPlatformImage? {
         guard let data else {
             return nil
         }
@@ -34,7 +44,7 @@ public class JxlSDWebImageCoder: NSObject, SDImageCoder {
         true
     }
 
-    public func encodedData(with image: UIImage?, format: SDImageFormat, options: [SDImageCoderOption : Any]? = nil) -> Data? {
+    public func encodedData(with image: JxlPlatformImage?, format: SDImageFormat, options: [SDImageCoderOption : Any]? = nil) -> Data? {
         guard let image else {
             return nil
         }
