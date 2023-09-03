@@ -12,7 +12,6 @@ import JxlCoder
 import SDWebImage
 #if !os(macOS)
 import UIKit
-import UIKit
 /// Alias for `UIImage`.
 public typealias JxlPlatformImage = UIImage
 #else
