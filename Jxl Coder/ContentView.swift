@@ -12,6 +12,8 @@ import JxlCoder
 
 struct ContentView: View {
 
+    @State var tenDepthImage: UIImage?
+    @State var alphaImage: UIImage?
     @State var firstImage: UIImage?
     @State var secondImage: UIImage?
     @State var thirdImage: UIImage?
@@ -20,6 +22,19 @@ struct ContentView: View {
         VStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack {
+
+                    if let tenDepthImage {
+                        Image(uiImage: tenDepthImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
+
+                    if let alphaImage {
+                        Image(uiImage: alphaImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
+
                     if let firstImage {
                         Image(uiImage: firstImage)
                             .resizable()
@@ -40,12 +55,19 @@ struct ContentView: View {
                 }
             }
         }
+        .background(Color.green.opacity(0.3))
         .padding()
         .onAppear {
             let url1 = Bundle.main.url(forResource: "first", withExtension: "jxl")!
             let url2 = Bundle.main.url(forResource: "second", withExtension: "jxl")!
+            let url3 = Bundle.main.url(forResource: "pexels-cheng", withExtension: "jxl")!
+            let url4 = Bundle.main.url(forResource: "pngtree", withExtension: "jxl")!
             let fImage = try! JXLCoder.decode(url: url1)
             let sImage = try! JXLCoder.decode(url: url2)
+            let kImage = try! JXLCoder.decode(url: url3)
+            let vImage = try! JXLCoder.decode(url: url4)
+            alphaImage = vImage
+            tenDepthImage = kImage
             firstImage = fImage
             secondImage = sImage
             let testEncImage = try! JXLCoder.encode(image: UIImage(named: "test_1")!, colorSpace: .rgb)

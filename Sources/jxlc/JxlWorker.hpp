@@ -1,5 +1,5 @@
 //
-//  JXLSystemImage.mm
+//  JxlWorker.hpp
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
 //  Created by Radzivon Bartoshyk on 27/08/2023.
@@ -23,24 +23,44 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JXLSystemImage_h
-#define JXLSystemImage_h
+#ifndef jxl_worker_hpp
+#define jxl_worker_hpp
 
-#import <Foundation/Foundation.h>
-#import "TargetConditionals.h"
+#include <stdio.h>
+#ifdef __cplusplus
+#include <vector>
+#endif
+#ifdef __cplusplus
 
-#if TARGET_OS_OSX
-#import <AppKit/AppKit.h>
-#define JXL_PLUGIN_MAC 1
-#define JXLSystemImage   NSImage
-#else
-#import <UIKit/UIKit.h>
-#define JXL_PLUGIN_MAC 0
-#define JXLSystemImage   UIImage
+enum jxl_colorspace {
+    rgb = 1,
+    rgba = 2
+};
+
+enum jxl_compression_option {
+    loseless = 1,
+    loosy = 2
+};
+
+bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
+                         std::vector<uint8_t> *pixels, size_t *xsize,
+                         size_t *ysize,
+                         std::vector<uint8_t> *icc_profile,
+                         int* depth,
+                         int* components,
+                         bool* useFloats);
+bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysize);
+bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
+                      const uint32_t ysize, std::vector<uint8_t> *compressed,
+                      jxl_colorspace colorspace, jxl_compression_option compression_option,
+                      float compression_distance);
+
+template <typename DataType>
+class JXLDataWrapper {
+public:
+    JXLDataWrapper() {}
+    std::vector<DataType> data;
+};
 #endif
 
-@interface JXLSystemImage (JXLColorData)
-- (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize;
-@end
-
-#endif /* JXLSystemImage_h */
+#endif /* jxl_worker_hpp */

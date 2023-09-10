@@ -1,5 +1,5 @@
 //
-//  JXLSystemImage.mm
+//  JxlInternalCoder.h
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
 //  Created by Radzivon Bartoshyk on 27/08/2023.
@@ -23,24 +23,29 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JXLSystemImage_h
-#define JXLSystemImage_h
+#ifndef JXLCoder_h
+#define JXLCoder_h
 
 #import <Foundation/Foundation.h>
-#import "TargetConditionals.h"
+#import "JXLSystemImage.hpp"
 
-#if TARGET_OS_OSX
-#import <AppKit/AppKit.h>
-#define JXL_PLUGIN_MAC 1
-#define JXLSystemImage   NSImage
-#else
-#import <UIKit/UIKit.h>
-#define JXL_PLUGIN_MAC 0
-#define JXLSystemImage   UIImage
-#endif
+typedef NS_ENUM(NSInteger, JXLColorSpace)  {
+    kRGB NS_SWIFT_NAME(rgb),
+    kRGBA NS_SWIFT_NAME(rgba)
+};
 
-@interface JXLSystemImage (JXLColorData)
-- (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize;
+typedef NS_ENUM(NSInteger, JXLCompressionOption) {
+    kLoseless NS_SWIFT_NAME(loseless),
+    kLossy NS_SWIFT_NAME(lossy)
+};
+
+@interface JxlInternalCoder: NSObject
+- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
+- (CGSize)getSize:(nonnull NSInputStream *)inputStream  error:(NSError *_Nullable * _Nullable)error;
+- (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
+                 colorSpace:(JXLColorSpace)colorSpace
+          compressionOption:(JXLCompressionOption)compressionOption
+        compressionDistance:(double)compressionDistance error:(NSError * _Nullable *_Nullable)error;
 @end
 
-#endif /* JXLSystemImage_h */
+#endif /* JXLCoder_h */

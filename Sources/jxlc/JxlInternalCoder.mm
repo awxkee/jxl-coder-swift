@@ -1,15 +1,34 @@
 //
-//  JXLCoder.m
-//  Jxl Coder
+//  JxlInternalCoder.cpp
+//  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
 //  Created by Radzivon Bartoshyk on 27/08/2023.
 //
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in
+//  all copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+//  THE SOFTWARE.
+//
 
 #import <Foundation/Foundation.h>
-#import "JXLCPlusCoder.h"
+#import "JxlInternalCoder.h"
 #import <vector>
-#import "jxl_worker.hpp"
+#import "JxlWorker.hpp"
 #import <Accelerate/Accelerate.h>
+#import "RgbRgbaConverter.h"
 
 static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);
@@ -22,33 +41,7 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
 }
 
 
-std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width, int height) {
-    std::vector<uint8_t> dstVector;
-    vImage_Buffer src = {
-        .data = (void*)srcVector.data(),
-        .width = static_cast<vImagePixelCount>(width),
-        .height = static_cast<vImagePixelCount>(height),
-        .rowBytes = static_cast<vImagePixelCount>(width * 4)
-    };
-
-    dstVector.resize(width * height * 3);
-
-    vImage_Buffer dest = {
-        .data = dstVector.data(),
-        .width = static_cast<vImagePixelCount>(width),
-        .height = static_cast<vImagePixelCount>(height),
-        .rowBytes = static_cast<vImagePixelCount>(width * 3)
-    };
-    uint8_t fillColor = 0x0000000;
-    vImage_Error vEerror = vImageFlatten_RGBA8888ToRGB888(&src, &dest, &fillColor, false, kvImageNoFlags);
-    if (vEerror != kvImageNoError) {
-        dstVector.resize(1);
-        return dstVector;
-    }
-    return dstVector;
-}
-
-@implementation JXLCPlusCoder
+@implementation JxlInternalCoder
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
                  colorSpace:(JXLColorSpace)colorSpace
           compressionOption:(JXLCompressionOption)compressionOption
@@ -96,7 +89,7 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
     free(rgbaData);
 
     if (jColorspace == rgb) {
-        auto resizedVector = convertRGBAtoRGB(pixels, width, height);
+        auto resizedVector = [RgbRgbaConverter convertRGBAtoRGB:pixels width:width height:height];
         if (resizedVector.size() == 1) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot convert RGBA pixels to RGB" }];
             return nil;
@@ -114,7 +107,9 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
 
     pixels.resize(1);
 
-    auto data = [[NSData alloc] initWithBytesNoCopy:wrapper->data.data() length:wrapper->data.size() deallocator:^(void * _Nonnull bytes, NSUInteger length) {
+    auto data = [[NSData alloc] initWithBytesNoCopy:wrapper->data.data()
+                                             length:wrapper->data.size()
+                                        deallocator:^(void * _Nonnull bytes, NSUInteger length) {
         delete wrapper;
     }];
 
@@ -202,14 +197,16 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         return nil;
     }
 
-    auto dataWrapper = new JXLDataWrapper<uint8_t>();
     std::vector<uint8_t> iccProfile;
     size_t xSize, ySize;
     bool useFloats;
+    int depth;
+    std::vector<uint8_t> outputData;
+    int components;
     auto decoded = DecodeJpegXlOneShot(imageData.data(), imageData.size(),
-                                       &dataWrapper->data, &xSize, &ySize, &iccProfile, &useFloats);
+                                       &outputData, &xSize, &ySize,
+                                       &iccProfile, &depth, &components, &useFloats);
     if (!decoded) {
-        delete dataWrapper;
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
         return nil;
     }
@@ -227,12 +224,28 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         colorSpace = CGColorSpaceCreateDeviceRGB();
     }
 
+    int stride = components*(int)xSize * (int)(useFloats ? sizeof(uint16_t) : sizeof(uint8_t));
+
     int flags;
     if (useFloats) {
-        flags = (int)kCGImageByteOrder16Little | (int)kCGImageAlphaLast | (int)kCGBitmapFloatComponents;
+        flags = (int)kCGBitmapByteOrder16Host | (int)kCGBitmapFloatComponents;
+        if (components == 4) {
+            flags |= (int)kCGImageAlphaLast;
+        } else {
+            flags |= (int)kCGImageAlphaNone;
+        }
     } else {
-        flags = (int)kCGImageByteOrder32Big | (int)kCGImageAlphaLast;
+        flags = (int)kCGImageByteOrderDefault;
+        if (components == 4) {
+            flags |= (int)kCGImageAlphaLast;
+        } else {
+            flags |= (int)kCGImageAlphaNone;
+        }
     }
+
+    auto dataWrapper = new JXLDataWrapper<uint8_t>();
+    dataWrapper->data = outputData;
+
     CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper,
                                                               dataWrapper->data.data(),
                                                               dataWrapper->data.size(),
@@ -245,8 +258,12 @@ std::vector<uint8_t> convertRGBAtoRGB(std::vector<uint8_t> srcVector, int width,
         return NULL;
     }
 
-    CGImageRef imageRef = CGImageCreate(xSize, ySize, useFloats ? 16 : 8,
-                                        useFloats ? 64 : 32, 4*xSize * (useFloats ? sizeof(uint16_t) : sizeof(uint8_t)),
+    int bitsPerComponent = (useFloats ? sizeof(uint16_t) : sizeof(uint8_t)) * 8;
+    int bitsPerPixel = bitsPerComponent*components;
+
+    CGImageRef imageRef = CGImageCreate(xSize, ySize, bitsPerComponent,
+                                        bitsPerPixel,
+                                        stride,
                                         colorSpace, flags, provider, NULL, false, kCGRenderingIntentDefault);
     if (!imageRef) {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder"

@@ -1,11 +1,29 @@
 //
-//  jxl_worker.cpp
-//  Jxl Coder
+//  JxlWorker.cpp
+//  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
 //  Created by Radzivon Bartoshyk on 27/08/2023.
 //
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in
+//  all copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+//  THE SOFTWARE.
+//
 
-#include "jxl_worker.hpp"
+#include "JxlWorker.hpp"
 #include <jxl/decode.h>
 #include <jxl/decode_cxx.h>
 #include <jxl/resizable_parallel_runner.h>
@@ -17,7 +35,10 @@
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,
-                         size_t *ysize, std::vector<uint8_t> *icc_profile,
+                         size_t *ysize,
+                         std::vector<uint8_t> *icc_profile,
+                         int* depth,
+                         int* components,
                          bool* useFloats) {
     // Multi-threaded parallel runner.
     auto runner = JxlResizableParallelRunnerMake(nullptr);
@@ -37,7 +58,7 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
     }
 
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_LITTLE_ENDIAN, 0};
+    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
 
     JxlDecoderSetInput(dec.get(), jxl, size);
     JxlDecoderCloseInput(dec.get());
@@ -59,11 +80,22 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             *xsize = info.xsize;
             *ysize = info.ysize;
             bitDepth = info.bits_per_sample;
+            *depth = info.bits_per_sample;
+            int baseComponents = info.num_color_channels;
+            // Will not support mono
+            if (baseComponents < 3) {
+                baseComponents = 3;
+            }
+            if (info.num_extra_channels > 0) {
+                baseComponents = 4;
+            }
+            *components = baseComponents;
             if (bitDepth > 8) {
                 *useFloats = true;
                 hdrImage = true;
-                format = { 4, JXL_TYPE_FLOAT16, JXL_LITTLE_ENDIAN, 0 };
+                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
             } else {
+                format.num_channels = baseComponents;
                 *useFloats = false;
             }
             JxlResizableParallelRunnerSetThreads(
@@ -71,6 +103,12 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                     JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize));
         } else if (status == JXL_DEC_COLOR_ENCODING) {
             // Get the ICC color profile of the pixel data
+
+//            JxlColorEncoding colorEncoding;
+//            if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsEncodedProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &colorEncoding)) {
+//                return false;
+//            }
+
             size_t icc_size;
             if (JXL_DEC_SUCCESS !=
                 JxlDecoderGetICCProfileSize(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
@@ -89,17 +127,17 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 JxlDecoderImageOutBufferSize(dec.get(), &format, &buffer_size)) {
                 return false;
             }
-            if (buffer_size != *xsize * *ysize * 4 * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t))) {
+            if (buffer_size != *xsize * *ysize * (*components) * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t))) {
                 return false;
             }
-            pixels->resize(*xsize * *ysize * 4 * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t)));
-            void *pixels_buffer = (void *) pixels->data();
-            size_t pixels_buffer_size = pixels->size() * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t));
+            pixels->resize(*xsize * *ysize * (*components) * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t)));
+            void *pixelsBuffer = (void *) pixels->data();
+            size_t pixelsBufferSize = pixels->size() * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t));
             
             if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(dec.get(),
                                                                &format,
-                                                               pixels_buffer,
-                                                               pixels_buffer_size)) {
+                                                               pixelsBuffer,
+                                                               pixelsBufferSize)) {
                 return false;
             }
         } else if (status == JXL_DEC_FULL_IMAGE) {

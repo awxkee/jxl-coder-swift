@@ -11,7 +11,7 @@ import jxlc
 #endif
 
 public class JXLCoder {
-    private static let shared = JXLCPlusCoder()
+    private static let shared = JxlInternalCoder()
     private static let magic1 = Data([0xFF, 0x0A])
     private static let magic2 = Data([0x0, 0x0, 0x0, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A])
 
