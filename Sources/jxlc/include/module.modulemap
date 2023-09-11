@@ -1,4 +1,4 @@
 module jxlc {
-    umbrella header "../JXLCPlusCoder.h"
+    umbrella header "../JxlInternalCoder.h"
     export *
 }
