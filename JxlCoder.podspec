@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = 'JxlCoder'
-    s.version          = '1.0.9'
+    s.version          = '1.0.10'
     s.summary          = 'JXL coder for iOS and MacOS'
     s.description      = 'Provides support for JXL files in iOS and MacOS'
     s.homepage         = 'https://github.com/awxkee/jxl-coder-swift'
@@ -9,8 +9,6 @@ Pod::Spec.new do |s|
     s.source           = { :git => 'https://github.com/awxkee/jxl-coder-swift.git', :tag => "#{s.version}" }
     s.ios.deployment_target = '11.0'
     s.osx.deployment_target = '11.0'
-    s.platform  = :ios, '11.0'
-    s.platform = :macos, '11.0'
     s.source_files = 'Sources/jxlc/*.{swift,h,m,cpp,mm,hpp}',  "Sources/JxlCoder/*.swift", 'Sources/Module/JxlCoder.h', 'Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/**/*.h'
     s.swift_version = ["5.3", "5.4", "5.5"]
     s.frameworks = "Foundation", "CoreGraphics", "Accelerate"
