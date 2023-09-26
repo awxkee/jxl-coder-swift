@@ -1,9 +1,9 @@
 # JxlCoder
 
 ## What's This?
-This package is provides support for JXL ( JPEG XL ) images for all apple platforms. Supports encode JXL and decode JXL images in convinient and fast way
+This package is provides support for Jpeg XL images for all apple platforms. Supports encode JXL ( Jpeg XL) on iOS, MacOS and decode JXL ( Jpeg XL ) images in convinient and fast way.
 
-A package to decode JXL on iOS, MacOS or encode JXL images. Also provider JXL support for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support for JXL images
+A package to decode Jpeg XL on iOS, MacOS or encode JXL images. Also provider JXL support on iOS for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support Jpeg XL images. Also support Objective C interoping for old projects via Cocoapods
 
 Supported ICC Profiles and HDR images.
 
