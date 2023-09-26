@@ -32,14 +32,25 @@
 #endif
 #ifdef __cplusplus
 
-enum jxl_colorspace {
+enum JxlPixelType {
     rgb = 1,
     rgba = 2
 };
 
-enum jxl_compression_option {
+enum JxlCompressionOption {
     loseless = 1,
     loosy = 2
+};
+
+enum JxlExposedOrientation {
+    Identity = 1,
+    FlipHorizontal = 2,
+    Rotate180 = 3,
+    FlipVertical = 4,
+    OrientTranspose = 5,
+    Rotate90CW = 6,
+    AntiTranspose = 7,
+    Rotate90CCW = 8
 };
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
@@ -48,11 +59,12 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *icc_profile,
                          int* depth,
                          int* components,
-                         bool* useFloats);
+                         bool* useFloats,
+                         JxlExposedOrientation* exposedOrientation);
 bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysize);
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
-                      jxl_colorspace colorspace, jxl_compression_option compression_option,
+                      JxlPixelType colorspace, JxlCompressionOption compression_option,
                       float compression_distance);
 
 template <typename DataType>

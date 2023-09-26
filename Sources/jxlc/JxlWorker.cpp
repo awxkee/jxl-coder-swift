@@ -39,7 +39,8 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *icc_profile,
                          int* depth,
                          int* components,
-                         bool* useFloats) {
+                         bool* useFloats,
+                         JxlExposedOrientation* exposedOrientation) {
     // Multi-threaded parallel runner.
     auto runner = JxlResizableParallelRunnerMake(nullptr);
 
@@ -57,8 +58,11 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
         return false;
     }
 
+    JxlDecoderSetKeepOrientation(dec.get(), JXL_TRUE);
+    JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE);
+
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_LITTLE_ENDIAN, 0};
 
     JxlDecoderSetInput(dec.get(), jxl, size);
     JxlDecoderCloseInput(dec.get());
@@ -90,10 +94,11 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 baseComponents = 4;
             }
             *components = baseComponents;
+            *exposedOrientation = static_cast<JxlExposedOrientation>(info.orientation);
             if (bitDepth > 8) {
                 *useFloats = true;
                 hdrImage = true;
-                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
+                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_LITTLE_ENDIAN, 0 };
             } else {
                 format.num_channels = baseComponents;
                 *useFloats = false;
@@ -212,7 +217,7 @@ bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysi
  */
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
-                      jxl_colorspace colorspace, jxl_compression_option compression_option,
+                      JxlPixelType colorspace, JxlCompressionOption compression_option,
                       float compression_distance) {
     auto enc = JxlEncoderMake(/*memory_manager=*/nullptr);
     auto runner = JxlThreadParallelRunnerMake(

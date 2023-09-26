@@ -29,6 +29,7 @@
 #import "JxlWorker.hpp"
 #import <Accelerate/Accelerate.h>
 #import "RgbRgbaConverter.h"
+#import "RgbScaler.h"
 
 static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);
@@ -64,8 +65,8 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
         return nil;
     }
 
-    jxl_colorspace jColorspace;
-    jxl_compression_option jCompressionOption;
+    JxlPixelType jColorspace;
+    JxlCompressionOption jCompressionOption;
 
     switch (colorSpace) {
         case kRGB:
@@ -203,13 +204,15 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
     int depth;
     std::vector<uint8_t> outputData;
     int components;
+    JxlExposedOrientation jxlExposedOrientation = Identity;
     auto decoded = DecodeJpegXlOneShot(imageData.data(), imageData.size(),
                                        &outputData, &xSize, &ySize,
-                                       &iccProfile, &depth, &components, &useFloats);
+                                       &iccProfile, &depth, &components, &useFloats, &jxlExposedOrientation);
     if (!decoded) {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
         return nil;
     }
+
 
     CGColorSpaceRef colorSpace;
     if (iccProfile.size() > 0) {
