@@ -25,7 +25,9 @@
 
 #import <Foundation/Foundation.h>
 #import "Accelerate/Accelerate.h"
-#import "RgbRgbaConverter.h"
+#import "RgbRgbaConverter.hpp"
+
+#ifdef __cplusplus
 
 @implementation RgbRgbaConverter: NSObject
 
@@ -143,3 +145,4 @@
 
 @end
 
+#endif

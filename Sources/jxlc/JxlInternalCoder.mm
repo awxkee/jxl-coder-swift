@@ -28,8 +28,7 @@
 #import <vector>
 #import "JxlWorker.hpp"
 #import <Accelerate/Accelerate.h>
-#import "RgbRgbaConverter.h"
-#import "RgbScaler.h"
+#import "RgbRgbaConverter.hpp"
 
 static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);

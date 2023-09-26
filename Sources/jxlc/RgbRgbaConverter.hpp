@@ -26,6 +26,8 @@
 #ifndef RgbRgbaConverter_h
 #define RgbRgbaConverter_h
 
+#ifdef __cplusplus
+
 #import <vector>
 
 @interface RgbRgbaConverter : NSObject
@@ -87,6 +89,8 @@
  */
 +(bool)convertRGBAU8ToRGBU8:(uint8_t*)src dst:(uint8_t*)dst width:(int)width height:(int)height;
 @end
+
+#endif
 
 #endif /* RgbRgbaConverter_h */
 
