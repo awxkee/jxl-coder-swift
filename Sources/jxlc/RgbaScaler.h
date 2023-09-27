@@ -1,8 +1,8 @@
 //
-//  JxlInternalCoder.h
+//  RgbaScaler.h
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
-//  Created by Radzivon Bartoshyk on 27/08/2023.
+//  Created by Radzivon Bartoshyk on 27/09/2023.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,29 +23,32 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JXLCoder_h
-#define JXLCoder_h
+#ifndef RgbaScaler_h
+#define RgbaScaler_h
 
-#import <Foundation/Foundation.h>
-#import "JXLSystemImage.hpp"
+#ifdef __cplusplus
 
-typedef NS_ENUM(NSInteger, JXLColorSpace)  {
-    kRGB NS_SWIFT_NAME(rgb),
-    kRGBA NS_SWIFT_NAME(rgba)
+#import <vector>
+
+typedef NS_ENUM(NSInteger, JxlIPixelFormat)  {
+    kU8 NS_SWIFT_NAME(Uniform8),
+    kF16 NS_SWIFT_NAME(Float16)
 };
 
-typedef NS_ENUM(NSInteger, JXLCompressionOption) {
-    kLoseless NS_SWIFT_NAME(loseless),
-    kLossy NS_SWIFT_NAME(lossy)
-};
-
-@interface JxlInternalCoder: NSObject
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream sampleSize:(CGSize)sampleSize error:(NSError *_Nullable * _Nullable)error;
-- (CGSize)getSize:(nonnull NSInputStream *)inputStream  error:(NSError *_Nullable * _Nullable)error;
-- (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                 colorSpace:(JXLColorSpace)colorSpace
-          compressionOption:(JXLCompressionOption)compressionOption
-        compressionDistance:(double)compressionDistance error:(NSError * _Nullable *_Nullable)error;
+@interface RgbaScaler : NSObject
+/**
+ * Converts unsigned uint8_t RGBA to RGB in uint8_t.
+ * @author Radzivon Bartoshyk
+ *
+ * @param srcVector Source buffer
+ * @param width width of of the image
+ * @param height width of of the image
+ * @param pixelFormat Pixel Format of the image
+ * @return destination
+ */
++(bool) scaleData:(std::vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat;
 @end
 
-#endif /* JXLCoder_h */
+#endif
+
+#endif /* Header_h */

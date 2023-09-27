@@ -62,7 +62,7 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
     JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE);
 
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_LITTLE_ENDIAN, 0};
+    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
 
     JxlDecoderSetInput(dec.get(), jxl, size);
     JxlDecoderCloseInput(dec.get());
@@ -98,7 +98,7 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             if (bitDepth > 8) {
                 *useFloats = true;
                 hdrImage = true;
-                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_LITTLE_ENDIAN, 0 };
+                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
             } else {
                 format.num_channels = baseComponents;
                 *useFloats = false;

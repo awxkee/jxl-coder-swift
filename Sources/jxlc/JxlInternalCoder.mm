@@ -29,6 +29,7 @@
 #import "JxlWorker.hpp"
 #import <Accelerate/Accelerate.h>
 #import "RgbRgbaConverter.hpp"
+#import "RgbaScaler.h"
 
 static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);
@@ -160,7 +161,9 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
     return CGSizeMake(width, height);
 }
 
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error {
+- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
+                         sampleSize:(CGSize)sampleSize
+                              error:(NSError *_Nullable * _Nullable)error {
     int buffer_length = 30196;
     std::vector<uint8_t> buffer;
     buffer.resize(buffer_length);
@@ -212,6 +215,17 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
         return nil;
     }
 
+    if (sampleSize.width > 0 && sampleSize.height > 0) {
+        auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
+                                       newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
+                                       components:components pixelFormat:useFloats ? kF16 : kU8];
+        if (!scaleResult) {
+            *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
+            return nil;
+        }
+        xSize = sampleSize.width;
+        ySize = sampleSize.height;
+    }
 
     CGColorSpaceRef colorSpace;
     if (iccProfile.size() > 0) {
