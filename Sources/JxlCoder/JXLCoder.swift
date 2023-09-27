@@ -66,7 +66,7 @@ public class JXLCoder {
                               colorSpace: JXLColorSpace = .rgb,
                               compressionOption: JXLCompressionOption = .lossy,
                               effort: Int = 7,
-                              quality: Int = 100) throws -> Data {
+                              quality: Int = 0) throws -> Data {
         return try shared.encode(image, colorSpace: colorSpace,
                                  compressionOption: compressionOption,
                                  effort: Int32(effort),
