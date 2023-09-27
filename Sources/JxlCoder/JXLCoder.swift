@@ -58,21 +58,19 @@ public class JXLCoder {
     }
 
     /***
-     - Parameter compressionDistance: Sets the distance level for lossy compression: target max butteraugli
-     * distance, lower = higher quality. Range: 0 .. 15.
-     * 0.0 = mathematically lossless (however, use JxlEncoderSetFrameLossless
-     * instead to use true lossless, as setting distance to 0 alone is not the only
-     * requirement). 1.0 = visually lossless. Recommended range: 0.5 .. 3.0. Default
-     * value: 1.0.
+     - Parameter quality: 0...100
+     - Parameter effort: 1...9
      - Returns: JXL data of the image
      **/
     public static func encode(image: JXLPlatformImage,
                               colorSpace: JXLColorSpace = .rgb,
                               compressionOption: JXLCompressionOption = .lossy,
-                              compressionDistance: Float = 1.0) throws -> Data {
+                              effort: Int = 7,
+                              quality: Int = 100) throws -> Data {
         return try shared.encode(image, colorSpace: colorSpace,
                                  compressionOption: compressionOption,
-                                 compressionDistance: Double(compressionDistance))
+                                 effort: Int32(effort),
+                                 quality: Int32(quality))
     }
 
     /***

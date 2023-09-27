@@ -43,9 +43,10 @@ typedef NS_ENUM(NSInteger, JXLCompressionOption) {
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream sampleSize:(CGSize)sampleSize error:(NSError *_Nullable * _Nullable)error;
 - (CGSize)getSize:(nonnull NSInputStream *)inputStream  error:(NSError *_Nullable * _Nullable)error;
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                 colorSpace:(JXLColorSpace)colorSpace
-          compressionOption:(JXLCompressionOption)compressionOption
-        compressionDistance:(double)compressionDistance error:(NSError * _Nullable *_Nullable)error;
+                     colorSpace:(JXLColorSpace)colorSpace
+                     compressionOption:(JXLCompressionOption)compressionOption
+                     effort:(int)effort
+                     quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
 @end
 
 #endif /* JXLCoder_h */

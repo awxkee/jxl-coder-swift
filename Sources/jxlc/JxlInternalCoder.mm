@@ -50,15 +50,20 @@ static inline float JXLGetDistance(const int quality)
     return(6.24f+(float) pow(2.5f,(30.0-(float)quality)/5.0)/6.25f);
 }
 
-
 @implementation JxlInternalCoder
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                 colorSpace:(JXLColorSpace)colorSpace
-          compressionOption:(JXLCompressionOption)compressionOption
-        compressionDistance:(double)compressionDistance error:(NSError * _Nullable *_Nullable)error {
+                    colorSpace:(JXLColorSpace)colorSpace
+                    compressionOption:(JXLCompressionOption)compressionOption
+                    effort:(int)effort
+                    quality:(int)quality error:(NSError * _Nullable *_Nullable)error {
 
-    if (compressionDistance < 0 || compressionDistance > 15) {
-        *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Compression distance must be clamped in 0...15" }];
+    if (quality < 0 || quality > 100) {
+        *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Quality must be clamped in 0...100" }];
+        return nil;
+    }
+
+    if (effort < 1 || effort > 9) {
+        *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Effort must be clamped in 1...9" }];
         return nil;
     }
 
@@ -73,10 +78,10 @@ static inline float JXLGetDistance(const int quality)
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Can' create preview of image" }];
         return nil;
     }
-
+    
     JxlPixelType jColorspace;
     JxlCompressionOption jCompressionOption;
-
+    
     switch (colorSpace) {
         case kRGB:
             jColorspace = rgb;
@@ -85,7 +90,7 @@ static inline float JXLGetDistance(const int quality)
             jColorspace = rgba;
             break;
     }
-
+    
     switch (compressionOption) {
         case kLoseless:
             jCompressionOption = loseless;
@@ -97,7 +102,7 @@ static inline float JXLGetDistance(const int quality)
     std::vector<uint8_t> pixels;
     pixels.insert(pixels.end(), (uint8_t*)rgbaData, rgbaData + bufferSize);
     free(rgbaData);
-
+    
     if (jColorspace == rgb) {
         auto resizedVector = [RgbRgbaConverter convertRGBAtoRGB:pixels width:width height:height];
         if (resizedVector.size() == 1) {
@@ -106,23 +111,23 @@ static inline float JXLGetDistance(const int quality)
         }
         pixels = resizedVector;
     }
-
+    
     JXLDataWrapper<uint8_t>* wrapper = new JXLDataWrapper<uint8_t>();
-    auto encoded = EncodeJxlOneshot(pixels, width, height, &wrapper->data, jColorspace, jCompressionOption, compressionDistance);
+    auto encoded = EncodeJxlOneshot(pixels, width, height, &wrapper->data, jColorspace, jCompressionOption, JXLGetDistance(quality), effort);
     if (!encoded) {
         delete wrapper;
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot encode JXL image" }];
         return nil;
     }
-
+    
     pixels.resize(1);
-
+    
     auto data = [[NSData alloc] initWithBytesNoCopy:wrapper->data.data()
                                              length:wrapper->data.size()
                                         deallocator:^(void * _Nonnull bytes, NSUInteger length) {
         delete wrapper;
     }];
-
+    
     return data;
 }
 
@@ -133,7 +138,7 @@ static inline float JXLGetDistance(const int quality)
     std::vector<uint8_t> imageData;
     [inputStream open];
     if ([inputStream streamStatus] == NSStreamStatusOpen) {
-
+        
         while ([inputStream hasBytesAvailable]) {
             NSInteger bytes_read = [inputStream read:buffer.data() maxLength:buffer_length];
             if (bytes_read > 0) {
@@ -154,19 +159,19 @@ static inline float JXLGetDistance(const int quality)
                 break;
             }
         }
-
+        
         [inputStream close];
     } else {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot open input stream" }];
         return CGSizeZero;
     }
-
+    
     size_t width, height;
     if (!DecodeBasicInfo(imageData.data(), imageData.size(), &width, &height)) {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot decode image info" }];
         return CGSizeZero;
     }
-
+    
     return CGSizeMake(width, height);
 }
 
@@ -179,7 +184,7 @@ static inline float JXLGetDistance(const int quality)
     std::vector<uint8_t> imageData;
     [inputStream open];
     if ([inputStream streamStatus] == NSStreamStatusOpen) {
-
+        
         while ([inputStream hasBytesAvailable]) {
             NSInteger bytes_read = [inputStream read:buffer.data() maxLength:buffer_length];
             if (bytes_read > 0) {
@@ -200,15 +205,15 @@ static inline float JXLGetDistance(const int quality)
                 break;
             }
         }
-
+        
         [inputStream close];
-
+        
         // Now you have the contents in the 'buffer' vector
     } else {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot open input stream" }];
         return nil;
     }
-
+    
     std::vector<uint8_t> iccProfile;
     size_t xSize, ySize;
     bool useFloats;
@@ -223,7 +228,7 @@ static inline float JXLGetDistance(const int quality)
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
         return nil;
     }
-
+    
     if (jxlExposedOrientation == Rotate90CW || jxlExposedOrientation == Rotate90CCW 
         || jxlExposedOrientation == AntiTranspose
         || jxlExposedOrientation == OrientTranspose) {
@@ -231,7 +236,7 @@ static inline float JXLGetDistance(const int quality)
         xSize = ySize;
         ySize = xz;
     }
-
+    
     if (sampleSize.width > 0 && sampleSize.height > 0) {
         auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
                                         newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
@@ -243,7 +248,7 @@ static inline float JXLGetDistance(const int quality)
         xSize = sampleSize.width;
         ySize = sampleSize.height;
     }
-
+    
     CGColorSpaceRef colorSpace;
     if (iccProfile.size() > 0) {
         CFDataRef iccData = CFDataCreate(kCFAllocatorDefault, iccProfile.data(), iccProfile.size());
@@ -252,13 +257,13 @@ static inline float JXLGetDistance(const int quality)
     } else {
         colorSpace = CGColorSpaceCreateDeviceRGB();
     }
-
+    
     if (!colorSpace) {
         colorSpace = CGColorSpaceCreateDeviceRGB();
     }
-
+    
     int stride = components*(int)xSize * (int)(useFloats ? sizeof(uint16_t) : sizeof(uint8_t));
-
+    
     int flags;
     if (useFloats) {
         flags = (int)kCGBitmapByteOrder16Host | (int)kCGBitmapFloatComponents;
@@ -275,10 +280,10 @@ static inline float JXLGetDistance(const int quality)
             flags |= (int)kCGImageAlphaNone;
         }
     }
-
+    
     auto dataWrapper = new JXLDataWrapper<uint8_t>();
     dataWrapper->data = outputData;
-
+    
     CGDataProviderRef provider = CGDataProviderCreateWithData(dataWrapper,
                                                               dataWrapper->data.data(),
                                                               dataWrapper->data.size(),
@@ -290,10 +295,10 @@ static inline float JXLGetDistance(const int quality)
                                         userInfo:@{ NSLocalizedDescriptionKey: @"CoreGraphics cannot allocate required provider" }];
         return NULL;
     }
-
+    
     int bitsPerComponent = (useFloats ? sizeof(uint16_t) : sizeof(uint8_t)) * 8;
     int bitsPerPixel = bitsPerComponent*components;
-
+    
     CGImageRef imageRef = CGImageCreate(xSize, ySize, bitsPerComponent,
                                         bitsPerPixel,
                                         stride,
@@ -310,7 +315,7 @@ static inline float JXLGetDistance(const int quality)
 #else
     image = [UIImage imageWithCGImage:imageRef scale:1 orientation:UIImageOrientationUp];
 #endif
-
+    
     return image;
 }
 @end

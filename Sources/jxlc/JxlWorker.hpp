@@ -65,7 +65,7 @@ bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysi
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
                       JxlPixelType colorspace, JxlCompressionOption compression_option,
-                      float compression_distance);
+                      float compression_distance, int effort);
 
 template <typename DataType>
 class JXLDataWrapper {
