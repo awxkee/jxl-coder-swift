@@ -58,7 +58,6 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
         return false;
     }
 
-    JxlDecoderSetKeepOrientation(dec.get(), JXL_TRUE);
     JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE);
 
     JxlBasicInfo info;

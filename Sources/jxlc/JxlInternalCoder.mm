@@ -41,6 +41,15 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
     delete dataWrapper;
 }
 
+static inline float JXLGetDistance(const int quality)
+{
+    if (quality == 0)
+        return(1.0f);
+    if (quality >= 30)
+        return(0.1f+(float) (100-std::min(100.0f, (float)quality))*0.09f);
+    return(6.24f+(float) pow(2.5f,(30.0-(float)quality)/5.0)/6.25f);
+}
+
 
 @implementation JxlInternalCoder
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
@@ -215,10 +224,18 @@ static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, 
         return nil;
     }
 
+    if (jxlExposedOrientation == Rotate90CW || jxlExposedOrientation == Rotate90CCW 
+        || jxlExposedOrientation == AntiTranspose
+        || jxlExposedOrientation == OrientTranspose) {
+        size_t xz = xSize;
+        xSize = ySize;
+        ySize = xz;
+    }
+
     if (sampleSize.width > 0 && sampleSize.height > 0) {
         auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
-                                       newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
-                                       components:components pixelFormat:useFloats ? kF16 : kU8];
+                                        newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
+                                      components:components pixelFormat:useFloats ? kF16 : kU8];
         if (!scaleResult) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
             return nil;
