@@ -30,6 +30,7 @@
 #import <Accelerate/Accelerate.h>
 #import "RgbRgbaConverter.hpp"
 #import "RgbaScaler.h"
+#import <algorithm>
 
 static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);

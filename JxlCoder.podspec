@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
     s.pod_target_xcconfig = {
         'OTHER_CXXFLAGS' => '$(inherited) -std=c++20',
         'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers"',
-        'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -fmodules -fcxx-modules'
+        'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -fmodules -fcxx-modules -std=c++20'
     }
     s.preserve_paths = "Sources/Frameworks/*.xcframework", "Sources/Frameworks/*.xcframework/**/Headers", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jxl", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jpegli"
     s.libraries = 'c++'
