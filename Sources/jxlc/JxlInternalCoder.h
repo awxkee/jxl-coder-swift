@@ -41,14 +41,22 @@ typedef NS_ENUM(NSInteger, JXLCompressionOption) {
 
 typedef NS_ENUM(NSInteger, JXLPreferredPixelFormat) {
     kOptimal NS_SWIFT_NAME(optimal),
-    kUniform8 NS_SWIFT_NAME(r8),
+    kR8 NS_SWIFT_NAME(r8),
     kFloat16 NS_SWIFT_NAME(float16),
+};
+
+typedef NS_ENUM(NSInteger, JxlSampler)  {
+    kNearestNeighbor NS_SWIFT_NAME(nearestNeighbor),
+    kBilinear NS_SWIFT_NAME(bilinear),
+    kCubic NS_SWIFT_NAME(cubic),
+    kMitchell NS_SWIFT_NAME(mitchell)
 };
 
 @interface JxlInternalCoder: NSObject
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
                              sampleSize:(CGSize)sampleSize
-                             pixelFormat:(JXLPreferredPixelFormat)pixelFormat
+                             pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
+                             sampler:(JxlSampler)sampler
                              error:(NSError *_Nullable * _Nullable)error;
 - (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage

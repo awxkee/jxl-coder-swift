@@ -108,6 +108,10 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 *useFloats = true;
                 hdrImage = true;
                 format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
+            } else if (pixelFormat == float16) {
+                *useFloats = true;
+                hdrImage = true;
+                format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
             } else {
                 if (pixelFormat == r8) {
                     *depth = 8;

@@ -189,7 +189,8 @@ static inline float JXLGetDistance(const int quality)
 
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
                              sampleSize:(CGSize)sampleSize
-                             pixelFormat:(JXLPreferredPixelFormat)pixelFormat
+                             pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
+                             sampler:(JxlSampler)sampler
                              error:(NSError *_Nullable * _Nullable)error {
     try {
         int buffer_length = 30196;
@@ -236,14 +237,14 @@ static inline float JXLGetDistance(const int quality)
         int components;
         JxlExposedOrientation jxlExposedOrientation = Identity;
         JxlDecodingPixelFormat pixelFormat;
-        switch (pixelFormat) {
-            case optimal:
+        switch (preferredPixelFormat) {
+            case kOptimal:
                 pixelFormat = optimal;
                 break;
-            case r8:
+            case kR8:
                 pixelFormat = r8;
                 break;
-            case float16:
+            case kFloat16:
                 pixelFormat = float16;
                 break;
         }
@@ -257,6 +258,8 @@ static inline float JXLGetDistance(const int quality)
             return nil;
         }
 
+        imageData.clear();
+
         if (jxlExposedOrientation == Rotate90CW || jxlExposedOrientation == Rotate90CCW
             || jxlExposedOrientation == AntiTranspose
             || jxlExposedOrientation == OrientTranspose) {
@@ -266,9 +269,26 @@ static inline float JXLGetDistance(const int quality)
         }
 
         if (sampleSize.width > 0 && sampleSize.height > 0) {
+            XSampler xSampler = bilinear;
+
+            switch (sampler) {
+                case kNearestNeighbor:
+                    xSampler = nearest;
+                    break;
+                case kBilinear:
+                    xSampler = bilinear;
+                    break;
+                case kCubic:
+                    xSampler = cubic;
+                    break;
+                case kMitchell:
+                    xSampler = mitchell;
+                    break;
+            }
+
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
                                            newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
-                                           components:components pixelFormat:useFloats ? kF16 : kU8];
+                                           components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
             if (!scaleResult) {
                 *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
                 return nil;

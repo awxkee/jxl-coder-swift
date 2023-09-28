@@ -32,35 +32,41 @@ public class JXLCoder {
     }
 
     /***
+     - Parameter sampleSize: if image size larger than sampler then it will be resized to sample
      - Returns: Decoded JXL image if this is the valid one
      **/
     public static func decode(srcStream: InputStream, 
                               sampleSize: CGSize = .zero,
-                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
-        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
+                              pixelFormat: JXLPreferredPixelFormat = .optimal,
+                              sampler: JxlSampler = .cubic) throws -> JXLPlatformImage {
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat, sampler: sampler)
     }
 
     /***
+     - Parameter sampleSize: if image size larger than sampler then it will be resized to sample
      - Returns: Decoded JXL image if this is the valid one
      **/
     public static func decode(url: URL, 
                               sampleSize: CGSize = .zero,
-                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
+                              pixelFormat: JXLPreferredPixelFormat = .optimal,
+                              sampler: JxlSampler = .cubic) throws -> JXLPlatformImage {
         guard let srcStream = InputStream(url: url) else {
             throw NSError(domain: "JXLCoder", code: 500,
                           userInfo: [NSLocalizedDescriptionKey: "JXLCoder cannot open provided URL"])
         }
-        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat, sampler: sampler)
     }
 
     /***
+     - Parameter sampleSize: if image size larger than sampler then it will be resized to sample
      - Returns: Decoded JXL image if this is the valid one
      **/
     public static func decode(data: Data, 
                               sampleSize: CGSize = .zero,
-                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
+                              pixelFormat: JXLPreferredPixelFormat = .optimal,
+                              sampler: JxlSampler = .cubic) throws -> JXLPlatformImage {
         let srcStream = InputStream(data: data)
-        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat, sampler: sampler)
     }
 
     /***
