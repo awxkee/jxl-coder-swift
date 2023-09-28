@@ -34,27 +34,33 @@ public class JXLCoder {
     /***
      - Returns: Decoded JXL image if this is the valid one
      **/
-    public static func decode(srcStream: InputStream, sampleSize: CGSize = .zero) throws -> JXLPlatformImage {
-        return try shared.decode(srcStream, sampleSize: sampleSize)
+    public static func decode(srcStream: InputStream, 
+                              sampleSize: CGSize = .zero,
+                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
     }
 
     /***
      - Returns: Decoded JXL image if this is the valid one
      **/
-    public static func decode(url: URL, sampleSize: CGSize = .zero) throws -> JXLPlatformImage {
+    public static func decode(url: URL, 
+                              sampleSize: CGSize = .zero,
+                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
         guard let srcStream = InputStream(url: url) else {
             throw NSError(domain: "JXLCoder", code: 500,
                           userInfo: [NSLocalizedDescriptionKey: "JXLCoder cannot open provided URL"])
         }
-        return try shared.decode(srcStream, sampleSize: sampleSize)
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
     }
 
     /***
      - Returns: Decoded JXL image if this is the valid one
      **/
-    public static func decode(data: Data, sampleSize: CGSize = .zero) throws -> JXLPlatformImage {
+    public static func decode(data: Data, 
+                              sampleSize: CGSize = .zero,
+                              pixelFormat: JXLPreferredPixelFormat = .optimal) throws -> JXLPlatformImage {
         let srcStream = InputStream(data: data)
-        return try shared.decode(srcStream, sampleSize: sampleSize)
+        return try shared.decode(srcStream, sampleSize: sampleSize, pixelFormat: pixelFormat)
     }
 
     /***

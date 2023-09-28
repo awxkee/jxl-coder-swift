@@ -138,7 +138,7 @@ static inline float JXLGetDistance(const int quality)
     }
 }
 
-- (CGSize)getSize:(nonnull NSInputStream *)inputStream  error:(NSError *_Nullable * _Nullable)error {
+- (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error {
     try {
         int buffer_length = 30196;
         std::vector<uint8_t> buffer;
@@ -188,8 +188,9 @@ static inline float JXLGetDistance(const int quality)
 }
 
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
-                         sampleSize:(CGSize)sampleSize
-                              error:(NSError *_Nullable * _Nullable)error {
+                             sampleSize:(CGSize)sampleSize
+                             pixelFormat:(JXLPreferredPixelFormat)pixelFormat
+                             error:(NSError *_Nullable * _Nullable)error {
     try {
         int buffer_length = 30196;
         std::vector<uint8_t> buffer;
@@ -234,9 +235,23 @@ static inline float JXLGetDistance(const int quality)
         std::vector<uint8_t> outputData;
         int components;
         JxlExposedOrientation jxlExposedOrientation = Identity;
+        JxlDecodingPixelFormat pixelFormat;
+        switch (pixelFormat) {
+            case optimal:
+                pixelFormat = optimal;
+                break;
+            case r8:
+                pixelFormat = r8;
+                break;
+            case float16:
+                pixelFormat = float16;
+                break;
+        }
         auto decoded = DecodeJpegXlOneShot(imageData.data(), imageData.size(),
                                            &outputData, &xSize, &ySize,
-                                           &iccProfile, &depth, &components, &useFloats, &jxlExposedOrientation);
+                                           &iccProfile, &depth, &components,
+                                           &useFloats, &jxlExposedOrientation,
+                                           pixelFormat);
         if (!decoded) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
             return nil;
@@ -252,8 +267,8 @@ static inline float JXLGetDistance(const int quality)
 
         if (sampleSize.width > 0 && sampleSize.height > 0) {
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
-                                            newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
-                                          components:components pixelFormat:useFloats ? kF16 : kU8];
+                                           newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
+                                           components:components pixelFormat:useFloats ? kF16 : kU8];
             if (!scaleResult) {
                 *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
                 return nil;

@@ -40,7 +40,8 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          int* depth,
                          int* components,
                          bool* useFloats,
-                         JxlExposedOrientation* exposedOrientation) {
+                         JxlExposedOrientation* exposedOrientation,
+                         JxlDecodingPixelFormat pixelFormat) {
     // Multi-threaded parallel runner.
     auto runner = JxlResizableParallelRunnerMake(nullptr);
 
@@ -61,7 +62,16 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
     JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE);
 
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    JxlPixelFormat format;
+    if (pixelFormat == optimal) {
+        format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    } else {
+        if (pixelFormat == float16) {
+            format = {4, JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0};
+        } else if (pixelFormat == r8) {
+            format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+        }
+    }
 
     JxlDecoderSetInput(dec.get(), jxl, size);
     JxlDecoderCloseInput(dec.get());
@@ -94,11 +104,14 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             }
             *components = baseComponents;
             *exposedOrientation = static_cast<JxlExposedOrientation>(info.orientation);
-            if (bitDepth > 8) {
+            if (bitDepth > 8 && pixelFormat == optimal) {
                 *useFloats = true;
                 hdrImage = true;
                 format = { static_cast<uint32_t>(baseComponents), JXL_TYPE_FLOAT16, JXL_NATIVE_ENDIAN, 0 };
             } else {
+                if (pixelFormat == r8) {
+                    *depth = 8;
+                }
                 format.num_channels = baseComponents;
                 *useFloats = false;
             }

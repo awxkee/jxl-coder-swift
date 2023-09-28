@@ -39,9 +39,18 @@ typedef NS_ENUM(NSInteger, JXLCompressionOption) {
     kLossy NS_SWIFT_NAME(lossy)
 };
 
+typedef NS_ENUM(NSInteger, JXLPreferredPixelFormat) {
+    kOptimal NS_SWIFT_NAME(optimal),
+    kUniform8 NS_SWIFT_NAME(r8),
+    kFloat16 NS_SWIFT_NAME(float16),
+};
+
 @interface JxlInternalCoder: NSObject
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream sampleSize:(CGSize)sampleSize error:(NSError *_Nullable * _Nullable)error;
-- (CGSize)getSize:(nonnull NSInputStream *)inputStream  error:(NSError *_Nullable * _Nullable)error;
+- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
+                             sampleSize:(CGSize)sampleSize
+                             pixelFormat:(JXLPreferredPixelFormat)pixelFormat
+                             error:(NSError *_Nullable * _Nullable)error;
+- (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
                      colorSpace:(JXLColorSpace)colorSpace
                      compressionOption:(JXLCompressionOption)compressionOption

@@ -42,6 +42,12 @@ enum JxlCompressionOption {
     loosy = 2
 };
 
+enum JxlDecodingPixelFormat {
+    optimal = 1,
+    r8 = 2,
+    float16 = 3
+};
+
 enum JxlExposedOrientation {
     Identity = 1,
     FlipHorizontal = 2,
@@ -60,7 +66,8 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          int* depth,
                          int* components,
                          bool* useFloats,
-                         JxlExposedOrientation* exposedOrientation);
+                         JxlExposedOrientation* exposedOrientation,
+                         JxlDecodingPixelFormat pixelFormat);
 bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysize);
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
