@@ -31,6 +31,325 @@
 
 @implementation RgbaScaler
 
+static bool API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0))
+scaleF16iOS16(int components, int height, int newHeight, int newWidth, std::vector<uint8_t> &src, int width) {
+    if (components == 3) {
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width * 3),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = src.data(),
+                .width = static_cast<vImagePixelCount>(width * 3),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+
+        {
+            uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
+            std::vector<uint8_t> dst(4 * sizeof(uint16_t) * width * height);
+
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)dst.data(),
+                .width = static_cast<vImagePixelCount>(width),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 4 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_RGB16UtoARGB16U(&srcBuffer, nullptr, whiteColor, &dstBuffer, false, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+            src = dst;
+        }
+
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width * 4),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 4 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width * 4),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 4 * sizeof(uint16_t)
+            };
+            const float scale = 1.0f / float((1 << 16) - 1);
+            vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+    }
+
+    std::vector<uint8_t> dst(4 * sizeof(uint16_t) * newWidth * newHeight);
+
+    vImage_Buffer srcBuffer = {
+        .data = (void*)src.data(),
+        .width = static_cast<vImagePixelCount>(width),
+        .height = static_cast<vImagePixelCount>(height),
+        .rowBytes = width * 4 * sizeof(uint16_t)
+    };
+
+    vImage_Buffer dstBuffer = {
+        .data = dst.data(),
+        .width = static_cast<vImagePixelCount>(newWidth),
+        .height = static_cast<vImagePixelCount>(newHeight),
+        .rowBytes = newWidth * 4 * sizeof(uint16_t)
+    };
+
+    auto result = vImageScale_ARGB16F(&srcBuffer, &dstBuffer, nullptr, kvImageNoFlags);
+    if (result != kvImageNoError) {
+        return false;
+    }
+
+    src = dst;
+
+    if (components == 3) {
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 4),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 4 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 4),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 4 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+
+        {
+            uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
+            std::vector<uint8_t> dst(3 * sizeof(uint16_t) * width * height);
+
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 4 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)dst.data(),
+                .width = static_cast<vImagePixelCount>(newWidth),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_ARGB16UtoRGB16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+            src = dst;
+        }
+
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 3),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 3),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+            const float scale = 1.0f / float((1 << 16) - 1);
+            vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        return true;
+    }
+}
+
+static bool scaleF16iOSPre16(int components, int height, int newHeight, int newWidth, std::vector<uint8_t> &src, int width) {
+    if (components == 3) {
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width * 3),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = src.data(),
+                .width = static_cast<vImagePixelCount>(width * 3),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+
+        {
+            uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
+            std::vector<uint8_t> dst(4 * sizeof(uint16_t) * width * height);
+
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(width),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)dst.data(),
+                .width = static_cast<vImagePixelCount>(width),
+                .height = static_cast<vImagePixelCount>(height),
+                .rowBytes = width * 4 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_RGB16UtoARGB16U(&srcBuffer, nullptr, whiteColor, &dstBuffer, false, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+            src = dst;
+        }
+    } else {
+        vImage_Buffer srcBuffer = {
+            .data = (void*)src.data(),
+            .width = static_cast<vImagePixelCount>(width * 4),
+            .height = static_cast<vImagePixelCount>(height),
+            .rowBytes = width * 4 * sizeof(uint16_t)
+        };
+
+        vImage_Buffer dstBuffer = {
+            .data = src.data(),
+            .width = static_cast<vImagePixelCount>(width * 4),
+            .height = static_cast<vImagePixelCount>(height),
+            .rowBytes = width * 4 * sizeof(uint16_t)
+        };
+        vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+        if (vEerror != kvImageNoError) {
+            return false;
+        }
+    }
+
+    std::vector<uint8_t> dst(4 * sizeof(uint16_t) * newWidth * newHeight);
+
+    vImage_Buffer srcBuffer = {
+        .data = (void*)src.data(),
+        .width = static_cast<vImagePixelCount>(width),
+        .height = static_cast<vImagePixelCount>(height),
+        .rowBytes = width * 4 * sizeof(uint16_t)
+    };
+
+    vImage_Buffer dstBuffer = {
+        .data = dst.data(),
+        .width = static_cast<vImagePixelCount>(newWidth),
+        .height = static_cast<vImagePixelCount>(newHeight),
+        .rowBytes = newWidth * 4 * sizeof(uint16_t)
+    };
+
+    auto result = vImageScale_ARGB16U(&srcBuffer, &dstBuffer, nullptr, kvImageNoFlags);
+    if (result != kvImageNoError) {
+        return false;
+    }
+    src = dst;
+
+    if (components == 3) {
+        {
+            uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
+            std::vector<uint8_t> dst(3 * sizeof(uint16_t) * width * height);
+
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 4 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)dst.data(),
+                .width = static_cast<vImagePixelCount>(newWidth),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+            vImage_Error vEerror = vImageConvert_ARGB16UtoRGB16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+            src = dst;
+        }
+
+        {
+            vImage_Buffer srcBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 3),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+
+            vImage_Buffer dstBuffer = {
+                .data = (void*)src.data(),
+                .width = static_cast<vImagePixelCount>(newWidth * 3),
+                .height = static_cast<vImagePixelCount>(newHeight),
+                .rowBytes = newWidth * 3 * sizeof(uint16_t)
+            };
+            const float scale = 1.0f / float((1 << 16) - 1);
+            vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
+            if (vEerror != kvImageNoError) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        vImage_Buffer srcBuffer = {
+            .data = (void*)src.data(),
+            .width = static_cast<vImagePixelCount>(newWidth * 4),
+            .height = static_cast<vImagePixelCount>(newHeight),
+            .rowBytes = newWidth * 4 * sizeof(uint16_t)
+        };
+
+        vImage_Buffer dstBuffer = {
+            .data = (void*)src.data(),
+            .width = static_cast<vImagePixelCount>(newWidth * 4),
+            .height = static_cast<vImagePixelCount>(newHeight),
+            .rowBytes = newWidth * 4 * sizeof(uint16_t)
+        };
+        const float scale = 1.0f / float((1 << 16) - 1);
+        vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
+        if (vEerror != kvImageNoError) {
+            return false;
+        }
+        return true;
+    }
+}
+
 +(bool) scaleData:(std::vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat {
 
     //Flipping not supported
@@ -109,170 +428,11 @@
             }
             return true;
         } else if (pixelFormat == kF16) {
-
-            if (components == 3) {
-                {
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(width * 3),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 3 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = src.data(),
-                        .width = static_cast<vImagePixelCount>(width * 3),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 3 * sizeof(uint16_t)
-                    };
-                    vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                }
-
-                {
-                    uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
-                    std::vector<uint8_t> dst(4 * sizeof(uint16_t) * width * height);
-
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(width),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 3 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = (void*)dst.data(),
-                        .width = static_cast<vImagePixelCount>(width),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 4 * sizeof(uint16_t)
-                    };
-                    vImage_Error vEerror = vImageConvert_RGB16UtoARGB16U(&srcBuffer, nullptr, whiteColor, &dstBuffer, false, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                    src = dst;
-                }
-
-                {
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(width * 4),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 4 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(width * 4),
-                        .height = static_cast<vImagePixelCount>(height),
-                        .rowBytes = width * 4 * sizeof(uint16_t)
-                    };
-                    const float scale = 1.0f / float((1 << 16) - 1);
-                    vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                }
-            }
-
-            std::vector<uint8_t> dst(4 * sizeof(uint16_t) * newWidth * newHeight);
-
-            vImage_Buffer srcBuffer = {
-                .data = (void*)src.data(),
-                .width = static_cast<vImagePixelCount>(width),
-                .height = static_cast<vImagePixelCount>(height),
-                .rowBytes = width * 4 * sizeof(uint16_t)
-            };
-
-            vImage_Buffer dstBuffer = {
-                .data = dst.data(),
-                .width = static_cast<vImagePixelCount>(newWidth),
-                .height = static_cast<vImagePixelCount>(newHeight),
-                .rowBytes = newWidth * 4 * sizeof(uint16_t)
-            };
-
-            if (@available(macOS 13.0, *)) {
-                auto result = vImageScale_ARGB16F(&srcBuffer, &dstBuffer, nullptr, kvImageNoFlags);
-                if (result != kvImageNoError) {
-                    return false;
-                }
+            if (@available(iOS 16.0, macOS 13.0, *)) {
+                return scaleF16iOS16(components, height, newHeight, newWidth, src, width);
             } else {
-                return false;
+                return scaleF16iOSPre16(components, height, newHeight, newWidth, src, width);
             }
-            src = dst;
-
-            if (components == 3) {
-                {
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth * 4),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 4 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = src.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth * 4),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 4 * sizeof(uint16_t)
-                    };
-                    vImage_Error vEerror = vImageConvert_16Fto16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                }
-
-                {
-                    uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)16) - 1);
-                    std::vector<uint8_t> dst(3 * sizeof(uint16_t) * width * height);
-
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 4 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = (void*)dst.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 3 * sizeof(uint16_t)
-                    };
-                    vImage_Error vEerror = vImageConvert_ARGB16UtoRGB16U(&srcBuffer, &dstBuffer, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                    src = dst;
-                }
-
-                {
-                    vImage_Buffer srcBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth * 3),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 3 * sizeof(uint16_t)
-                    };
-
-                    vImage_Buffer dstBuffer = {
-                        .data = (void*)src.data(),
-                        .width = static_cast<vImagePixelCount>(newWidth * 3),
-                        .height = static_cast<vImagePixelCount>(newHeight),
-                        .rowBytes = newWidth * 3 * sizeof(uint16_t)
-                    };
-                    const float scale = 1.0f / float((1 << 16) - 1);
-                    vImage_Error vEerror = vImageConvert_16Uto16F(&srcBuffer, &dstBuffer, kvImageNoFlags);
-                    if (vEerror != kvImageNoError) {
-                        return false;
-                    }
-                }
-                return true;
-            } else {
-                return true;
-            }
-
         }
         return false;
     } catch (const std::bad_alloc& e) {
