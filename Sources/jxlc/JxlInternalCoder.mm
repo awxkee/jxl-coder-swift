@@ -188,7 +188,7 @@ static inline float JXLGetDistance(const int quality)
 }
 
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
-                             sampleSize:(CGSize)sampleSize
+                             rescale:(CGSize)rescale
                              pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
                              sampler:(JxlSampler)sampler
                              error:(NSError *_Nullable * _Nullable)error {
@@ -268,7 +268,7 @@ static inline float JXLGetDistance(const int quality)
             ySize = xz;
         }
 
-        if (sampleSize.width > 0 && sampleSize.height > 0) {
+        if (rescale.width > 0 && rescale.height > 0) {
             XSampler xSampler = bilinear;
 
             switch (sampler) {
@@ -293,14 +293,14 @@ static inline float JXLGetDistance(const int quality)
             }
 
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
-                                           newWidth:(int)sampleSize.width newHeight:(int)sampleSize.height
+                                           newWidth:(int)rescale.width newHeight:(int)rescale.height
                                            components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
             if (!scaleResult) {
                 *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
                 return nil;
             }
-            xSize = sampleSize.width;
-            ySize = sampleSize.height;
+            xSize = rescale.width;
+            ySize = rescale.height;
         }
 
         CGColorSpaceRef colorSpace;

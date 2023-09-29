@@ -56,7 +56,7 @@ typedef NS_ENUM(NSInteger, JxlSampler)  {
 
 @interface JxlInternalCoder: NSObject
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
-                             sampleSize:(CGSize)sampleSize
+                             rescale:(CGSize)rescale
                              pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
                              sampler:(JxlSampler)sampler
                              error:(NSError *_Nullable * _Nullable)error;
