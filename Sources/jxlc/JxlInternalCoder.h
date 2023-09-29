@@ -50,7 +50,8 @@ typedef NS_ENUM(NSInteger, JxlSampler)  {
     kBilinear NS_SWIFT_NAME(bilinear),
     kCubic NS_SWIFT_NAME(cubic),
     kMitchell NS_SWIFT_NAME(mitchell),
-    kLanczos NS_SWIFT_NAME(lanczos)
+    kLanczos NS_SWIFT_NAME(lanczos),
+    kCatmullRom NS_SWIFT_NAME(catmullRom)
 };
 
 @interface JxlInternalCoder: NSObject

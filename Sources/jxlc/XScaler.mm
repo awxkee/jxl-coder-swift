@@ -12,6 +12,7 @@
 #include <algorithm>
 
 using namespace half_float;
+using namespace std;
 
 inline half_float::half castU16(uint16_t t) {
     half_float::half result;
@@ -67,6 +68,18 @@ inline T lanczosWindow(T x, T a) {
         return a * sin(T(M_PI) * x) * sin(T(M_PI) * x / a) / (T(M_PI) * T(M_PI) * x * x);
     }
     return T(0.0);
+}
+
+template <typename T>
+inline T CatmullRom(T x) {
+    x = (float)fabs(x);
+
+    if (x < 1.0f)
+        return T(1) - x*x*(T(2.5f) - T(1.5f)*x);
+    else if (x < 2.0f)
+        return T(2) - x*(T(4) + x*(T(0.5f)*x - T(2.5f)));
+
+    return T(0.0f);
 }
 
 void scaleImageFloat16(uint16_t* input,
@@ -166,16 +179,46 @@ void scaleImageFloat16(uint16_t* input,
                 for (int c = 0; c < components; ++c) {
                     dst16[x*components + c] = rgb[c].data_;
                 }
+            } else if (option == catmullRom) {
+
+                half rgb[components];
+
+                float kx1 = floor(srcX);
+                float ky1 = floor(srcY);
+
+                for (int j = -1; j <= 2; j++) {
+                    for (int i = -1; i <= 2; i++) {
+                        int xi = kx1 + i;
+                        int yj = ky1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            half weight = CatmullRom(half(srcX - xi)) * CatmullRom(half(srcY - yj));
+
+                            for (int c = 0; c < components; ++c) {
+                                half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c]);
+                                half clr = clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    dst16[x*components + c] = rgb[c].data_;
+                }
             } else if (option == lanczos) {
                 half rgb[components];
 
                 int a = 3;
                 float lanczosFA = float(3.0f);
 
+                float kx1 = floor(srcX);
+                float ky1 = floor(srcY);
+
                 for (int j = -a + 1; j <= a; j++) {
                     for (int i = -a + 1; i <= a; i++) {
-                        int xi = x1 + i;
-                        int yj = y1 + j;
+                        int xi = kx1 + i;
+                        int yj = ky1 + j;
 
                         if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
                             float weight = lanczosWindow(float(srcX - xi), (float)lanczosFA) * lanczosWindow(float(srcY - yj), (float)lanczosFA);
@@ -254,7 +297,7 @@ void scaleImageU16(uint16_t* input,
 
                     half result = (c1 + c2 + c3 + c4);
                     float f = result * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
 
@@ -285,7 +328,7 @@ void scaleImageU16(uint16_t* input,
                 for (int c = 0; c < components; ++c) {
                     float cc = rgb[c];
                     float f = cc * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else if (option == mitchell) {
@@ -312,7 +355,37 @@ void scaleImageU16(uint16_t* input,
                 for (int c = 0; c < components; ++c) {
                     float cc = rgb[c];
                     float f = cc * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
+                    dst16[x*components + c] = static_cast<uint16_t>(f);
+                }
+            } else if (option == catmullRom) {
+                half rgb[components];
+
+                float kx1 = floor(srcX);
+                float ky1 = floor(srcY);
+
+                for (int j = -1; j <= 2; j++) {
+                    for (int i = -1; i <= 2; i++) {
+                        int xi = kx1 + i;
+                        int yj = ky1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            half weight = CatmullRom(half(srcX - xi)) * CatmullRom(half(srcY - yj));
+
+                            for (int c = 0; c < components; ++c) {
+                                uint16_t p = reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c];
+                                half clrf((float)p / maxColors);
+                                half clr = clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    float cc = rgb[c];
+                    float f = cc * maxColors;
+                    f = clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else if (option == lanczos) {
@@ -341,7 +414,7 @@ void scaleImageU16(uint16_t* input,
                 for (int c = 0; c < components; ++c) {
                     float cc = rgb[c];
                     float f = cc * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else {
@@ -402,7 +475,7 @@ void scaleImageU8(uint8_t* input,
 
                     half result = (c1 + c2 + c3 + c4);
                     float f = result * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
                     dst[x*components + c] = static_cast<uint8_t>(f);
 
                 }
@@ -460,6 +533,36 @@ void scaleImageU8(uint8_t* input,
                     f = std::clamp(f, 0.0f, maxColors);
                     dst[x*components + c] = static_cast<uint16_t>(f);
                 }
+            } else if (option == catmullRom) {
+                half rgb[components];
+
+                float kx1 = floor(srcX);
+                float ky1 = floor(srcY);
+
+                for (int j = -1; j <= 2; j++) {
+                    for (int i = -1; i <= 2; i++) {
+                        int xi = kx1 + i;
+                        int yj = ky1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            half weight = CatmullRom(half(srcX - xi)) * CatmullRom(half(srcY - yj));
+
+                            for (int c = 0; c < components; ++c) {
+                                uint8_t p = reinterpret_cast<const uint8_t*>(src8 + yj * srcStride)[xi*components + c];
+                                half clrf((float)p / maxColors);
+                                half clr = clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    float cc = rgb[c];
+                    float f = cc * maxColors;
+                    f = clamp(f, 0.0f, maxColors);
+                    dst[x*components + c] = static_cast<uint16_t>(f);
+                }
             } else if (option == lanczos) {
                 half rgb[components];
 
@@ -467,10 +570,13 @@ void scaleImageU8(uint8_t* input,
 
                 int a = 3;
 
+                float kx1 = floor(srcX);
+                float ky1 = floor(srcY);
+
                 for (int j = -a + 1; j <= a; j++) {
                     for (int i = -a + 1; i <= a; i++) {
-                        int xi = x1 + i;
-                        int yj = y1 + j;
+                        int xi = kx1 + i;
+                        int yj = ky1 + j;
 
                         if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
                             float weight = lanczosWindow(float(srcX - xi), lanczosFA) * lanczosWindow(float(srcY - yj), lanczosFA);
@@ -487,7 +593,7 @@ void scaleImageU8(uint8_t* input,
                 for (int c = 0; c < components; ++c) {
                     float cc = rgb[c];
                     float f = cc * maxColors;
-                    f = std::clamp(f, 0.0f, maxColors);
+                    f = clamp(f, 0.0f, maxColors);
                     dst[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else {
