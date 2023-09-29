@@ -26,9 +26,20 @@ inline half_float::half PromoteToHalf(T t, float maxColors) {
     return result;
 }
 
+template <typename T, typename D>
+inline D PromoteTo(T t, float maxColors) {
+    D result = static_cast<D>((float)t / maxColors);
+    return result;
+}
+
 template <typename T>
 inline T DemoteHalfTo(half t, float maxColors) {
     return (T)clamp(((float)t * (float)maxColors), 0.0f, (float)maxColors);
+}
+
+template <typename T, typename D>
+inline D DemoteTo(T t, float maxColors) {
+    return (D)clamp(((float)t * (float)maxColors), 0.0f, (float)maxColors);
 }
 
 template <typename T>
@@ -131,8 +142,8 @@ void scaleImageFloat16(uint16_t* input,
             int y1 = static_cast<int>(srcY);
 
             if (option == bilinear) {
-                int x2 = std::min(x1 + 1, inputWidth - 1);
-                int y2 = std::min(y1 + 1, inputHeight - 1);
+                int x2 = min(x1 + 1, inputWidth - 1);
+                int y2 = min(y1 + 1, inputHeight - 1);
 
                 half dx(x2 - x1);
                 half dy(y2 - y1);
@@ -150,9 +161,6 @@ void scaleImageFloat16(uint16_t* input,
                     dst16[x*components + c] = result.data_;
                 }
             } else if (option == cubic) {
-                half dx = half(srcX - x);
-                half dy = half(srcY - y);
-
                 half rgb[components];
 
                 for (int j = -1; j <= 2; j++) {
@@ -163,7 +171,7 @@ void scaleImageFloat16(uint16_t* input,
                         half weight = CubicBSpline(half(srcX - xi)) * CubicBSpline(half(srcY - yj));
 
                         for (int c = 0; c < components; ++c) {
-                            half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(x, 0, inputWidth - 1)*components + c]);
+                            half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c]);
                             half clr = clrf * weight;
                             rgb[c] += clr;
                         }
@@ -174,9 +182,6 @@ void scaleImageFloat16(uint16_t* input,
                     dst16[x*components + c] = rgb[c].data_;
                 }
             } else if (option == mitchell) {
-                half dx = half(srcX - x);
-                half dy = half(srcY - y);
-
                 half rgb[components];
 
                 for (int j = -1; j <= 2; j++) {
@@ -214,7 +219,8 @@ void scaleImageFloat16(uint16_t* input,
                     dst16[x*components + c] += clr.data_;
                 }
             } else if (option == lanczos) {
-                half rgb[components];
+                float rgb[components];
+                memset(&rgb[0], 0.0f, sizeof(float) * components);
 
                 int a = 3;
                 float lanczosFA = float(3.0f);
@@ -222,19 +228,19 @@ void scaleImageFloat16(uint16_t* input,
                 float kx1 = floor(srcX);
                 float ky1 = floor(srcY);
 
-                half weightSum(0.0f);
+                float weightSum(0.0f);
 
                 for (int j = -a + 1; j <= a; j++) {
                     for (int i = -a + 1; i <= a; i++) {
                         int xi = kx1 + i;
                         int yj = ky1 + j;
-                        half dx = half(srcX) - (half(kx1) + (half)i);
-                        half dy = half(srcY) - (half(ky1) + (half)j);
-                        half weight = lanczosWindow(dx, (half)lanczosFA) * lanczosWindow(dy, (half)lanczosFA);
+                        float dx = float(srcX) - (float(kx1) + (float)i);
+                        float dy = float(srcY) - (float(ky1) + (float)j);
+                        float weight = lanczosWindow(dx, lanczosFA) * lanczosWindow(dy, lanczosFA);
                         weightSum += weight;
                         for (int c = 0; c < components; ++c) {
                             half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c]);
-                            half clr = half(clrf * weight);
+                            float clr = (float)clrf * weight;
                             rgb[c] += clr;
                         }
                     }
@@ -242,9 +248,9 @@ void scaleImageFloat16(uint16_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     if (weightSum == 0) {
-                        dst16[x*components + c] = rgb[c].data_;
+                        dst16[x*components + c] = half(rgb[c]).data_;
                     } else {
-                        dst16[x*components + c] = (rgb[c] / weightSum).data_;
+                        dst16[x*components + c] = half(rgb[c] / weightSum).data_;
                     }
                 }
             } else {
@@ -382,27 +388,29 @@ void scaleImageU16(uint16_t* input,
                     dst16[x*components + c] += clr;
                 }
             } else if (option == lanczos) {
-                half rgb[components];
+                float rgb[components];
+                memset(&rgb[0], 0.0f, sizeof(float) * components);
+
+                float lanczosFA = float(3.0f);
 
                 int a = 3;
-                half lanczosFA = half(3.0f);
-
-                half weightSum(0.0f);
 
                 float kx1 = floor(srcX);
                 float ky1 = floor(srcY);
+
+                float weightSum(0.0f);
 
                 for (int j = -a + 1; j <= a; j++) {
                     for (int i = -a + 1; i <= a; i++) {
                         int xi = kx1 + i;
                         int yj = ky1 + j;
-                        half dx = half(srcX) - (half(kx1) + (half)i);
-                        half dy = half(srcY) - (half(ky1) + (half)j);
-                        half weight = lanczosWindow(dx, (half)lanczosFA) * lanczosWindow(dy, (half)lanczosFA);
+                        float dx = float(srcX) - (float(kx1) + (float)i);
+                        float dy = float(srcY) - (float(ky1) + (float)j);
+                        float weight = lanczosWindow(dx, (float)lanczosFA) * lanczosWindow(dy, (float)lanczosFA);
                         weightSum += weight;
                         for (int c = 0; c < components; ++c) {
-                            half clrf = PromoteToHalf(reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
-                            half clr = half(clrf * weight);
+                            float clrf = PromoteTo<uint16_t, float>(reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
+                            float clr = clrf * weight;
                             rgb[c] += clr;
                         }
                     }
@@ -410,9 +418,9 @@ void scaleImageU16(uint16_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     if (weightSum == 0) {
-                        dst16[x*components + c] = DemoteHalfTo<uint16_t>(rgb[c], maxColors);
+                        dst16[x*components + c] = DemoteTo<float, uint16_t>(rgb[c], maxColors);
                     } else {
-                        dst16[x*components + c] = DemoteHalfTo<uint16_t>(rgb[c] / weightSum, maxColors);
+                        dst16[x*components + c] = DemoteTo<float, uint16_t>(rgb[c] / weightSum, maxColors);
                     }
                 }
             } else {
@@ -543,28 +551,29 @@ void scaleImageU8(uint8_t* input,
                     dst[x*components + c] += clr;
                 }
             } else if (option == lanczos) {
-                half rgb[components];
+                float rgb[components];
+                memset(&rgb[0], 0.0f, sizeof(float) * components);
 
-                half lanczosFA = half(3.0f);
+                float lanczosFA = float(3.0f);
 
                 int a = 3;
 
                 float kx1 = floor(srcX);
                 float ky1 = floor(srcY);
 
-                half weightSum(0.0f);
+                float weightSum(0.0f);
 
                 for (int j = -a + 1; j <= a; j++) {
                     for (int i = -a + 1; i <= a; i++) {
                         int xi = kx1 + i;
                         int yj = ky1 + j;
-                        half dx = half(srcX) - (half(kx1) + (half)i);
-                        half dy = half(srcY) - (half(ky1) + (half)j);
-                        half weight = lanczosWindow(dx, (half)lanczosFA) * lanczosWindow(dy, (half)lanczosFA);
+                        float dx = float(srcX) - (float(kx1) + (float)i);
+                        float dy = float(srcY) - (float(ky1) + (float)j);
+                        float weight = lanczosWindow(dx, (float)lanczosFA) * lanczosWindow(dy, (float)lanczosFA);
                         weightSum += weight;
                         for (int c = 0; c < components; ++c) {
-                            half clrf = PromoteToHalf(reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
-                            half clr = half(clrf * weight);
+                            float clrf = PromoteTo<uint8_t, float>(reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride)[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
+                            float clr = clrf * weight;
                             rgb[c] += clr;
                         }
                     }
@@ -572,9 +581,9 @@ void scaleImageU8(uint8_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     if (weightSum == 0) {
-                        dst[x*components + c] = DemoteHalfTo<uint8_t>(rgb[c], maxColors);
+                        dst[x*components + c] = DemoteTo<float, uint8_t>(rgb[c], maxColors);
                     } else {
-                        dst[x*components + c] = DemoteHalfTo<uint8_t>(rgb[c] / weightSum, maxColors);
+                        dst[x*components + c] = DemoteTo<float, uint8_t>(rgb[c] / weightSum, maxColors);
                     }
                 }
             } else {
