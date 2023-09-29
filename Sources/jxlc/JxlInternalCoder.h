@@ -49,7 +49,8 @@ typedef NS_ENUM(NSInteger, JxlSampler)  {
     kNearestNeighbor NS_SWIFT_NAME(nearestNeighbor),
     kBilinear NS_SWIFT_NAME(bilinear),
     kCubic NS_SWIFT_NAME(cubic),
-    kMitchell NS_SWIFT_NAME(mitchell)
+    kMitchell NS_SWIFT_NAME(mitchell),
+    kLanczos NS_SWIFT_NAME(lanczos)
 };
 
 @interface JxlInternalCoder: NSObject

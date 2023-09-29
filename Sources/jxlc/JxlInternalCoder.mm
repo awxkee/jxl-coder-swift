@@ -284,6 +284,9 @@ static inline float JXLGetDistance(const int quality)
                 case kMitchell:
                     xSampler = mitchell;
                     break;
+                case kLanczos:
+                    xSampler = lanczos;
+                    break;
             }
 
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize

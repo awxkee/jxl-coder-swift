@@ -17,7 +17,8 @@ enum XSampler {
     bilinear = 1,
     nearest = 2,
     cubic = 3,
-    mitchell = 4
+    mitchell = 4,
+    lanczos = 5
 };
 
 void scaleImageFloat16(uint16_t* input,

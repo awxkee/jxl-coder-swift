@@ -27,36 +27,46 @@ inline half_float::half ConvertTo(uint16_t t, float maxColors) {
 
 template <typename T>
 inline T CubicBSpline(T t) {
-    T absX = std::abs(t);
+    T absX = abs(t);
     if (absX <= 1.0) {
-        return (2.0 / 3.0) - (absX * absX) + (0.5 * absX * absX * absX);
+        return T(2.0 / 3.0) - (absX * absX) + (T(0.5) * absX * absX * absX);
     } else if (absX <= 2.0) {
-        return ((2.0 - absX) * (2.0 - absX) * (2.0 - absX)) / 6.0;
+        return ((T(2.0) - absX) * (T(2.0) - absX) * (T(2.0) - absX)) / T(6.0);
     } else {
-        return 0.0;
+        return T(0.0);
     }
 }
 
-inline half FilterMitchell(half t) {
-    half x = abs(t);
+template <typename T>
+inline T FilterMitchell(T t) {
+    T x = abs(t);
 
     if (x < 1.0f)
-        return (half(16) + x*x*(half(21) * x - half(36)))/half(18);
+        return (T(16) + x*x*(T(21) * x - T(36)))/T(18);
     else if (x < 2.0f)
-        return (half(32) + x*(half(-60) + x*(half(36) - half(7)*x)))/half(18);
+        return (T(32) + x*(T(-60) + x*(T(36) - T(7)*x)))/T(18);
 
-    return half(0.0f);
+    return T(0.0f);
 }
 
-inline half CubicBSpline(half t) {
-    half absX = abs(t);
-    if (absX <= 1.0) {
-        return half(2.0 / 3.0) - (absX * absX) + (half(0.5) * absX * absX * absX);
-    } else if (absX <= 2.0) {
-        return ((half(2.0) - absX) * (half(2.0) - absX) * (half(2.0) - absX)) / half(6.0);
+template <typename T>
+T sinc(T x) {
+    if (x == 0.0) {
+        return T(1.0);
     } else {
-        return half(0.0);
+        return sin(T(M_PI) * x) / (T(M_PI) * x);
     }
+}
+
+template <typename T>
+inline T lanczosWindow(T x, T a) {
+    if (x == 0.0) {
+        return T(1.0);
+    }
+    if (abs(x) < a) {
+        return a * sin(T(M_PI) * x) * sin(T(M_PI) * x / a) / (T(M_PI) * T(M_PI) * x * x);
+    }
+    return T(0.0);
 }
 
 void scaleImageFloat16(uint16_t* input,
@@ -147,6 +157,32 @@ void scaleImageFloat16(uint16_t* input,
                             for (int c = 0; c < components; ++c) {
                                 half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c]);
                                 half clr = clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    dst16[x*components + c] = rgb[c].data_;
+                }
+            } else if (option == lanczos) {
+                half rgb[components];
+
+                int a = 3;
+                float lanczosFA = float(3.0f);
+
+                for (int j = -a + 1; j <= a; j++) {
+                    for (int i = -a + 1; i <= a; i++) {
+                        int xi = x1 + i;
+                        int yj = y1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            float weight = lanczosWindow(float(srcX - xi), (float)lanczosFA) * lanczosWindow(float(srcY - yj), (float)lanczosFA);
+
+                            for (int c = 0; c < components; ++c) {
+                                half clrf = castU16(reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c]);
+                                half clr = half((float)clrf * weight);
                                 rgb[c] += clr;
                             }
                         }
@@ -253,9 +289,6 @@ void scaleImageU16(uint16_t* input,
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else if (option == mitchell) {
-                half dx = half(srcX - x);
-                half dy = half(srcY - y);
-
                 half rgb[components];
 
                 for (int j = -1; j <= 2; j++) {
@@ -268,7 +301,7 @@ void scaleImageU16(uint16_t* input,
 
                             for (int c = 0; c < components; ++c) {
                                 uint16_t p = reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c];
-                                half clrf(p / maxColors);
+                                half clrf((float)p / maxColors);
                                 half clr = clrf * weight;
                                 rgb[c] += clr;
                             }
@@ -282,7 +315,36 @@ void scaleImageU16(uint16_t* input,
                     f = std::clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
-            }  else {
+            } else if (option == lanczos) {
+                half rgb[components];
+
+                int a = 3;
+                float lanczosKernel = 3.0;
+
+                for (int j = -a + 1; j <= a; j++) {
+                    for (int i = -a + 1; i <= a; i++) {
+                        int xi = x1 + i;
+                        int yj = y1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            float weight = lanczosWindow(float(srcX - xi), lanczosKernel) * lanczosWindow(float(srcY - yj), lanczosKernel);
+
+                            for (int c = 0; c < components; ++c) {
+                                uint16_t p = reinterpret_cast<const uint16_t*>(src8 + yj * srcStride)[xi*components + c];
+                                half clrf((float)p / maxColors * weight);
+                                rgb[c] += clrf;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    float cc = rgb[c];
+                    float f = cc * maxColors;
+                    f = std::clamp(f, 0.0f, maxColors);
+                    dst16[x*components + c] = static_cast<uint16_t>(f);
+                }
+            } else {
                 for (int c = 0; c < components; ++c) {
                     dst16[x*components + c] = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride)[x1*components + c];
                 }
@@ -345,9 +407,6 @@ void scaleImageU8(uint8_t* input,
 
                 }
             } else if (option == cubic) {
-                half dx = half(srcX - x);
-                half dy = half(srcY - y);
-
                 half rgb[components];
 
                 for (int j = -1; j <= 2; j++) {
@@ -375,9 +434,6 @@ void scaleImageU8(uint8_t* input,
                     dst[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else if (option == mitchell) {
-                half dx = half(srcX - x);
-                half dy = half(srcY - y);
-
                 half rgb[components];
 
                 for (int j = -1; j <= 2; j++) {
@@ -390,9 +446,39 @@ void scaleImageU8(uint8_t* input,
 
                             for (int c = 0; c < components; ++c) {
                                 uint8_t p = reinterpret_cast<const uint8_t*>(src8 + yj * srcStride)[xi*components + c];
-                                half clrf(p / maxColors);
+                                half clrf((float)p / maxColors);
                                 half clr = clrf * weight;
                                 rgb[c] += clr;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < components; ++c) {
+                    float cc = rgb[c];
+                    float f = cc * maxColors;
+                    f = std::clamp(f, 0.0f, maxColors);
+                    dst[x*components + c] = static_cast<uint16_t>(f);
+                }
+            } else if (option == lanczos) {
+                half rgb[components];
+
+                float lanczosFA = float(3.0f);
+
+                int a = 3;
+
+                for (int j = -a + 1; j <= a; j++) {
+                    for (int i = -a + 1; i <= a; i++) {
+                        int xi = x1 + i;
+                        int yj = y1 + j;
+
+                        if (xi >= 0 && xi < inputWidth && yj >= 0 && yj < inputHeight) {
+                            float weight = lanczosWindow(float(srcX - xi), lanczosFA) * lanczosWindow(float(srcY - yj), lanczosFA);
+
+                            for (int c = 0; c < components; ++c) {
+                                uint8_t p = reinterpret_cast<const uint8_t*>(src8 + yj * srcStride)[xi*components + c];
+                                half clrf((float)p / maxColors * weight);
+                                rgb[c] += clrf;
                             }
                         }
                     }
