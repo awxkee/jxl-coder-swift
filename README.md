@@ -21,6 +21,17 @@ Go to `File / Swift Packages / Add Package Dependency…`
 and enter package repository URL https://github.com/awxkee/jxl-coder-swift, then select the latest master branch
 at the time of writing.
 
+### CocoaPods
+
+Add 
+```ruby
+pod 'JxlCoder' 
+```
+to your Podfile and then
+```shell
+pod install
+```
+
 ## Usage
 
 ```swift
