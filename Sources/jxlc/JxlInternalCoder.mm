@@ -290,6 +290,15 @@ static inline float JXLGetDistance(const int quality)
                 case kCatmullRom:
                     xSampler = catmullRom;
                     break;
+                case kHermite:
+                    xSampler = hermite;
+                    break;
+                case kBSpline:
+                    xSampler = bSpline;
+                    break;
+                case kHann:
+                    xSampler = hann;
+                    break;
             }
 
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize

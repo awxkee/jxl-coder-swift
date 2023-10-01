@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = 'JxlCoder'
-    s.version          = '1.2.1'
+    s.version          = '1.2.2'
     s.summary          = 'JXL coder for iOS and MacOS'
     s.description      = 'Provides support for JXL files in iOS and MacOS'
     s.homepage         = 'https://github.com/awxkee/jxl-coder-swift'
