@@ -25,7 +25,9 @@ at the time of writing.
 
 Add 
 ```ruby
-pod 'JxlCoder' 
+pod 'JxlCoder'
+# if you need a SDWebImage extensions
+pod 'JxlSDWebImageCoder'
 ```
 to your Podfile and then
 ```shell
