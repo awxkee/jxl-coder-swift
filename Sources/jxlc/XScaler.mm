@@ -21,7 +21,7 @@ using namespace std;
 
 typedef float (*KernelSample4Func)(float, float, float, float, float);
 #if __arm64__
-typedef float32x4_t (*KernelSample4NEONFunc)(float32x4_t, float32x4_t, float32x4_t, float32x4_t, float32x4_t);
+typedef float32x4_t (*KernelSample4NEONFunc)(const float32x4_t, const float32x4_t, const float32x4_t,const float32x4_t,const float32x4_t);
 #endif
 typedef float (*KernelWindow2Func)(float, const float);
 
@@ -124,9 +124,6 @@ void scaleImageFloat16(uint16_t* input,
                 float32x4_t diff = { srcX1 - (float)kx1, srcX2 - (float)kx2, srcX3 - (float)kx3, components == 4 ? srcX4 - (float)kx4 : 0.0f };
 
                 for (int c = 0; c < components; ++c) {
-                    if (components == 3) {
-                        fill(input, input + 4*4, 0);
-                    }
                     input[0] = row1[clamp(kx1, 0, inputWidth - 1)*components + c];
                     input[1] = row1y1[clamp(kx1 + 1, 0, inputWidth - 1)*components + c];
                     input[2] = row1[clamp(kx1 + 1, 0, inputWidth - 1)*components + c];
@@ -147,6 +144,11 @@ void scaleImageFloat16(uint16_t* input,
                         input[13] = row4y1[clamp(kx4 + 1, 0, inputWidth - 1)*components + c];
                         input[14] = row4[clamp(kx4 + 1, 0, inputWidth - 1)*components + c];
                         input[15] = row4y1[clamp(kx4 + 1, 0, inputWidth - 1)*components + c];
+                    } else {
+                        input[12] = 0;
+                        input[13] = 0;
+                        input[14] = 0;
+                        input[15] = 0;
                     }
 
                     float16x4x4_t inputHalfs = vld4_f16(reinterpret_cast<float16_t*>(&input[0]));
@@ -157,15 +159,13 @@ void scaleImageFloat16(uint16_t* input,
                     float32x4_t p3 = vcvt_f32_f16(inputHalfs.val[3]);
                     
                     float32x4_t result = sampler(diff, p0, p1, p2, p3);
-                    float16x4_t pixels = vcvt_f16_f32(result);
+                    uint16x4_t m = vreinterpret_u16_f16(vcvt_f16_f32(result));
 
-                    vst1_f16(reinterpret_cast<float16_t*>(&input[0]), pixels);
-
-                    dst16[x*components + c] = input[0];
-                    dst16[(x + 1)*components + c] = input[1];
-                    dst16[(x + 2)*components + c] = input[2];
+                    dst16[x*components + c] = vget_lane_u16(m, 0);
+                    dst16[(x + 1)*components + c] = vget_lane_u16(m, 1);
+                    dst16[(x + 2)*components + c] = vget_lane_u16(m, 2);
                     if (components == 4) {
-                        dst16[(x + 3)*components + c] = input[3];
+                        dst16[(x + 3)*components + c] = vget_lane_u16(m, 3);
                     }
                 }
             }
@@ -280,9 +280,9 @@ void scaleImageFloat16(uint16_t* input,
                                     row16[1],
                                     row16[2], 0.0f };
                                 float32x4_t x = vmulq_n_f32(vcvt_f32_f16(vc), weight);
-                                rgb[0] += x[0];
-                                rgb[1] += x[1];
-                                rgb[2] += x[2];
+                                rgb[0] += vgetq_lane_f32(x, 0);
+                                rgb[1] += vgetq_lane_f32(x, 1);
+                                rgb[2] += vgetq_lane_f32(x, 2);
                             } else if (components == 4) {
                                 float16x4_t vc = vld1_f16(row16);
                                 float32x4_t x = vmulq_n_f32(vcvt_f32_f16(vc), weight);
@@ -311,9 +311,9 @@ void scaleImageFloat16(uint16_t* input,
                     } else {
                         float32x4_t xx = { rgb[0], rgb[1], rgb[2], 0.0f };
                         uint16x4_t k = vreinterpret_u16_f16(vcvt_f16_f32(vdivq_f32(xx, vdupq_n_f32(weightSum))));
-                        dst16[x*components] += k[0];
-                        dst16[x*components + 1] += k[1];
-                        dst16[x*components + 2] += k[2];
+                        dst16[x*components] += vget_lane_u16(k, 0);
+                        dst16[x*components + 1] += vget_lane_u16(k, 1);
+                        dst16[x*components + 2] += vget_lane_u16(k, 2);
                     }
                 }
 #endif
@@ -327,10 +327,16 @@ void scaleImageFloat16(uint16_t* input,
                     }
                 }
             } else {
+#if __arm64__
+                auto row = reinterpret_cast<const float16_t*>(src8 + y1 * srcStride);
+                float16x4_t m = vld1_f16(row + x1*components);
+                vst1_f16(reinterpret_cast<float16_t*>(dst16 + x*components), m);
+#else
                 auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
                 for (int c = 0; c < components; ++c) {
                     dst16[x*components + c] = row[x1*components + c];
                 }
+#endif
             }
         }
 //    }
@@ -352,7 +358,7 @@ void scaleImageU16(uint16_t* input,
     auto src8 = reinterpret_cast<const uint8_t*>(input);
     auto dst8 = reinterpret_cast<uint8_t*>(output);
 
-    float maxColors = std::pow(2, depth) - 1;
+    float maxColors = pow(2, depth) - 1;
 
     dispatch_queue_t concurrentQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_apply(outputHeight, concurrentQueue, ^(size_t y) {
@@ -383,14 +389,13 @@ void scaleImageU16(uint16_t* input,
                 auto row2 = reinterpret_cast<const uint16_t*>(src8 + y2 * srcStride);
 
                 for (int c = 0; c < components; ++c) {
-                    float c1 = PromoteTo<float, uint16_t>(row1[x1*components + c], maxColors) * invertDx * invertDy;
-                    float c2 = PromoteTo<float, uint16_t>(row1[x2*components + c], maxColors) * dx * invertDy;
-                    float c3 = PromoteTo<float, uint16_t>(row2[x1*components + c], maxColors) * invertDx * dy;
-                    float c4 = PromoteTo<float, uint16_t>(row2[x2*components + c], maxColors) * dx * dy;
+                    float c1 = static_cast<float>(row1[x1*components + c]) * invertDx * invertDy;
+                    float c2 = static_cast<float>(row1[x2*components + c]) * dx * invertDy;
+                    float c3 = static_cast<float>(row2[x1*components + c]) * invertDx * dy;
+                    float c4 = static_cast<float>(row2[x2*components + c]) * dx * dy;
 
                     float result = (c1 + c2 + c3 + c4);
-                    float f = ceil(result * maxColors);
-                    f = clamp(f, 0.0f, maxColors);
+                    float f = clamp(f, 0.0f, maxColors);
                     dst16[x*components + c] = static_cast<uint16_t>(f);
                 }
             } else if (option == cubic || option == mitchell || option == bSpline || option == catmullRom || option == hermite) {
@@ -425,11 +430,11 @@ void scaleImageU16(uint16_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     float weight = sampler(srcX - (float)xi,
-                                           PromoteTo<float, uint16_t>(row[clamp(xi, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint16_t>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint16_t>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint16_t>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors));
-                    uint16_t clr = DemoteTo<uint16_t, float>(weight, maxColors);
+                                           static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
+                    uint16_t clr = (uint16_t) clamp(weight, 0.0f, maxColors);
                     dst16[x*components + c] = clr;
                 }
             } else if (option == lanczos || option == hann) {
@@ -465,7 +470,7 @@ void scaleImageU16(uint16_t* input,
                         auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
 
                         for (int c = 0; c < components; ++c) {
-                            float clrf = PromoteTo<float, uint16_t>(row[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
+                            float clrf = static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]);
                             float clr = clrf * weight;
                             rgb[c] += clr;
                         }
@@ -474,16 +479,22 @@ void scaleImageU16(uint16_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     if (weightSum == 0) {
-                        dst16[x*components + c] = DemoteTo<uint16_t, float>(rgb[c], maxColors);
+                        dst16[x*components + c] = static_cast<float>(clamp(rgb[c], 0.0f, maxColors));
                     } else {
-                        dst16[x*components + c] = DemoteTo<uint16_t, float>(rgb[c] / weightSum, maxColors);
+                        dst16[x*components + c] = static_cast<float>(clamp(rgb[c] / weightSum, 0.0f, maxColors));
                     }
                 }
             } else {
+#if __arm64__
+                auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
+                uint16x4_t m = vld1_u16(row + x1*components);
+                vst1_u16(reinterpret_cast<uint16_t*>(dst16 + x*components), m);
+#else
                 auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
                 for (int c = 0; c < components; ++c) {
                     dst16[x*components + c] = row[x1*components + c];
                 }
+#endif
             }
 
         }
@@ -612,22 +623,20 @@ void scaleImageU8(uint8_t* input,
 
                     uint16x4x4_t inputHalfs = vld4_u16(reinterpret_cast<uint16_t*>(&input[0]));
 
-                    float32x4_t p0 = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(inputHalfs.val[0])), colorScale);
-                    float32x4_t p1 = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(inputHalfs.val[1])), colorScale);
-                    float32x4_t p2 = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(inputHalfs.val[2])), colorScale);
-                    float32x4_t p3 = vmulq_n_f32(vcvtq_f32_u32(vmovl_u16(inputHalfs.val[3])), colorScale);
+                    float32x4_t p0 = vcvtq_f32_u32(vmovl_u16(inputHalfs.val[0]));
+                    float32x4_t p1 = vcvtq_f32_u32(vmovl_u16(inputHalfs.val[1]));
+                    float32x4_t p2 = vcvtq_f32_u32(vmovl_u16(inputHalfs.val[2]));
+                    float32x4_t p3 = vcvtq_f32_u32(vmovl_u16(inputHalfs.val[3]));
 
                     float32x4_t result = sampler(diff, p0, p1, p2, p3);
-                    result = vminq_f32(vmaxq_f32(vrndq_f32(vmulq_n_f32(result, maxColors)), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
+                    result = vminq_f32(vmaxq_f32(vrndq_f32(result), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
                     uint16x4_t m = vqmovn_u32(vcvtq_u32_f32(result));
 
-                    vst1_u16(reinterpret_cast<uint16_t*>(&input[0]), m);
-
-                    dst[x*components + c] = (uint8_t)input[0];
-                    dst[(x + 1)*components + c] = (uint8_t)input[1];
-                    dst[(x + 2)*components + c] = (uint8_t)input[2];
+                    dst[x*components + c] = (uint8_t)vget_lane_u16(m, 0);
+                    dst[(x + 1)*components + c] = (uint8_t)vget_lane_u16(m, 1);
+                    dst[(x + 2)*components + c] = (uint8_t)vget_lane_u16(m, 2);
                     if (components == 4) {
-                        dst[(x + 3)*components + c] = (uint8_t)input[3];
+                        dst[(x + 3)*components + c] = (uint8_t)vget_lane_u16(m, 3);
                     }
                 }
             }
@@ -638,7 +647,6 @@ void scaleImageU8(uint8_t* input,
             float srcX = x * xScale;
             float srcY = y * yScale;
 
-            // Calculate the integer and fractional parts
             int x1 = static_cast<int>(srcX);
             int y1 = static_cast<int>(srcY);
 
@@ -656,14 +664,13 @@ void scaleImageU8(uint8_t* input,
                 float invertDy = float(1.0f) - dy;
 
                 for (int c = 0; c < components; ++c) {
-                    float c1 = PromoteTo<float, uint8_t>(row1[x1*components + c], maxColors) * invertDx * invertDy;
-                    float c2 = PromoteTo<float, uint8_t>(row1[x2*components + c], maxColors) * dx * invertDy;
-                    float c3 = PromoteTo<float, uint8_t>(row2[x1*components + c], maxColors) * invertDx * dy;
-                    float c4 = PromoteTo<float, uint8_t>(row2[x2*components + c], maxColors) * dx * dy;
+                    float c1 = static_cast<float>(row1[x1*components + c]) * invertDx * invertDy;
+                    float c2 = static_cast<float>(row1[x2*components + c]) * dx * invertDy;
+                    float c3 = static_cast<float>(row2[x1*components + c]) * invertDx * dy;
+                    float c4 = static_cast<float>(row2[x2*components + c]) * dx * dy;
 
                     float result = (c1 + c2 + c3 + c4);
-                    float f = result * maxColors;
-                    f = clamp(f, 0.0f, maxColors);
+                    float f = clamp(result, 0.0f, maxColors);
                     dst[x*components + c] = static_cast<uint8_t>(f);
 
                 }
@@ -699,11 +706,11 @@ void scaleImageU8(uint8_t* input,
 
                 for (int c = 0; c < components; ++c) {
                     float weight = sampler(srcX - (float)xi,
-                                           PromoteTo<float, uint8_t>(row[clamp(xi, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint8_t>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint8_t>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors),
-                                           PromoteTo<float, uint8_t>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c], maxColors));
-                    uint8_t clr = DemoteTo<uint8_t, float>(weight, maxColors);
+                                           static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
+                    uint8_t clr = (uint8_t) clamp(weight, 0.0f, maxColors);
                     dst[x*components + c] = clr;
                 }
             } else if (option == lanczos || option == hann) {
@@ -747,7 +754,6 @@ void scaleImageU8(uint8_t* input,
                                     (float)row16[0],
                                     (float)row16[1],
                                     (float)row16[2], 0.0f };
-                                vc = vmulq_n_f32(vc, colorScale);
                                 float32x4_t x = vmulq_n_f32(vc, weight);
                                 rgb[0] += x[0];
                                 rgb[1] += x[1];
@@ -759,7 +765,6 @@ void scaleImageU8(uint8_t* input,
                                     (float)row16[2],
                                     (float)row16[3]
                                 };
-                                vc = vmulq_n_f32(vc, colorScale);
                                 float32x4_t x = vmulq_n_f32(vc, weight);
                                 float32x4_t m = vld1q_f32(rgb);
                                 vst1q_f32(rgb, vaddq_f32(m, x));
@@ -769,7 +774,7 @@ void scaleImageU8(uint8_t* input,
 
                         if (!useNEONIfAvailable) {
                             for (int c = 0; c < components; ++c) {
-                                float clrf = PromoteTo<float, uint8_t>(row[clamp(xi, 0, inputWidth - 1)*components + c], maxColors);
+                                float clrf = static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]);
                                 float clr = clrf * weight;
                                 rgb[c] += clr;
                             }
@@ -783,37 +788,41 @@ void scaleImageU8(uint8_t* input,
                     if (components == 4) {
                         float32x4_t xx = vld1q_f32(rgb);
                         xx = vdivq_f32(xx, vdupq_n_f32(weightSum));
-                        float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(vmulq_n_f32(xx, maxColors)), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
+                        float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(xx), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
                         uint16x4_t m = vqmovn_u32(vcvtq_u32_f32(result));
-                        dst[x*components] = (uint8_t)m[0];
-                        dst[x*components + 1] = (uint8_t)m[1];
-                        dst[x*components + 2] = (uint8_t)m[2];
-                        dst[x*components + 3] = (uint8_t)m[3];
+                        dst[x*components] = (uint8_t)vget_lane_u16(m, 0);
+                        dst[x*components + 1] = (uint8_t)vget_lane_u16(m, 1);
+                        dst[x*components + 2] = (uint8_t)vget_lane_u16(m, 2);
+                        dst[x*components + 3] = (uint8_t)vget_lane_u16(m, 3);
                     } else {
                         float32x4_t xx = { rgb[0], rgb[1], rgb[2], 0.0f };
                         xx = vdivq_f32(xx, vdupq_n_f32(weightSum));
-                        float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(vmulq_n_f32(xx, maxColors)), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
+                        float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(xx), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
                         uint16x4_t m = vqmovn_u32(vcvtq_u32_f32(result));
-                        dst[x*components] = (uint8_t)m[0];
-                        dst[x*components + 1] = (uint8_t)m[1];
-                        dst[x*components + 2] = (uint8_t)m[2];
+                        dst[x*components] = (uint8_t)vget_lane_u16(m, 0);
+                        dst[x*components + 1] = (uint8_t)vget_lane_u16(m, 1);
+                        dst[x*components + 2] = (uint8_t)vget_lane_u16(m, 2);
                     }
                 }
 #endif
                 if (!useNEONIfAvailable || !useNeonAccumulator) {
                     for (int c = 0; c < components; ++c) {
                         if (weightSum == 0) {
-                            dst[x*components + c] = DemoteTo<uint8_t, float>(rgb[c], maxColors);
+                            dst[x*components + c] = static_cast<uint8_t>(clamp(rgb[c], 0.0f, maxColors));
                         } else {
-                            dst[x*components + c] = DemoteTo<uint8_t, float>(rgb[c] / weightSum, maxColors);
+                            dst[x*components + c] = static_cast<uint8_t>(clamp(rgb[c] / weightSum, 0.0f, maxColors));
                         }
                     }
                 }
 
             } else {
                 auto row = reinterpret_cast<const uint8_t*>(src8 + y1 * srcStride);
-                for (int c = 0; c < components; ++c) {
-                    dst[x*components + c] = row[x1*components + c];
+                if (components == 4) {
+                    reinterpret_cast<uint32_t*>(dst + x*components)[0] = reinterpret_cast<const uint32_t*>(row + x1*components)[0];
+                } else {
+                    for (int c = 0; c < components; ++c) {
+                        dst[x*components + c] = row[x1*components + c];
+                    }
                 }
             }
         }
