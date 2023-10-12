@@ -46,9 +46,12 @@ static inline float JXLGetDistance(const int quality)
 {
     if (quality == 0)
         return(1.0f);
-    if (quality >= 30)
-        return std::clamp((0.1f+(float) (100-std::min(100.0f, (float)quality))*0.09f), 0.0f, 15.0f);
-    return std::clamp((6.24f+(float) pow(2.5f,(30.0-(float)quality)/5.0)/6.25f), 0.0f, 15.0f);
+    float distance = quality >= 100 ? 0.0
+                       : quality >= 30
+                           ? 0.1 + (100 - quality) * 0.09
+                           : 53.0 / 3000.0 * quality * quality -
+                                 23.0 / 20.0 * quality + 25.0;
+    return distance;
 }
 
 @implementation JxlInternalCoder

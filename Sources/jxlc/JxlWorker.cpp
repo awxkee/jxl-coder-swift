@@ -259,8 +259,7 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
     JxlEncoderInitBasicInfo(&basic_info);
     basic_info.xsize = xsize;
     basic_info.ysize = ysize;
-    basic_info.bits_per_sample = 32;
-    basic_info.exponent_bits_per_sample = 8;
+    basic_info.bits_per_sample = 8;
     basic_info.uses_original_profile = compression_option == loosy ? JXL_FALSE : JXL_TRUE;
     basic_info.num_color_channels = 3;
 
@@ -299,24 +298,32 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
     JxlEncoderFrameSettings *frameSettings =
             JxlEncoderFrameSettingsCreate(enc.get(), nullptr);
 
-    if (JXL_ENC_SUCCESS !=
-        JxlEncoderAddImageFrame(frameSettings, &pixel_format,
-                                (void *) pixels.data(),
-                                sizeof(uint8_t) * pixels.size())) {
+    JxlBitDepth depth;
+    depth.bits_per_sample = 8;
+    depth.exponent_bits_per_sample = 0;
+    depth.type = JXL_BIT_DEPTH_FROM_PIXEL_FORMAT;
+    if (JXL_ENC_SUCCESS != JxlEncoderSetFrameBitDepth(frameSettings, &depth)) {
         return false;
     }
 
-    if (compression_option == loseless &&
-        JXL_ENC_SUCCESS != JxlEncoderSetFrameDistance(frameSettings, JXL_TRUE)) {
+    if (JXL_ENC_SUCCESS != JxlEncoderSetFrameLossless(frameSettings, compression_option == loseless)) {
         return false;
-    } else if (compression_option == loosy &&
-               JXL_ENC_SUCCESS !=
+    }
+
+    if (JXL_ENC_SUCCESS !=
                JxlEncoderSetFrameDistance(frameSettings, compression_distance)) {
         return false;
     }
 
     if (JxlEncoderFrameSettingsSetOption(frameSettings,
                                          JXL_ENC_FRAME_SETTING_EFFORT, effort) != JXL_ENC_SUCCESS) {
+        return false;
+    }
+
+    if (JXL_ENC_SUCCESS !=
+        JxlEncoderAddImageFrame(frameSettings, &pixel_format,
+                                (void *) pixels.data(),
+                                sizeof(uint8_t) * pixels.size())) {
         return false;
     }
 
