@@ -32,8 +32,8 @@
 #import "XScaler.hpp"
 
 typedef NS_ENUM(NSInteger, JxlIPixelFormat)  {
-    kU8 NS_SWIFT_NAME(Uniform8),
-    kF16 NS_SWIFT_NAME(Float16)
+    kU8 NS_SWIFT_NAME(uniform8),
+    kF16 NS_SWIFT_NAME(float16)
 };
 
 @interface RgbaScaler : NSObject

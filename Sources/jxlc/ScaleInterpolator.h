@@ -60,17 +60,68 @@ T CubicBSpline(T t);
 #if __arm64__
 #include <arm_neon.h>
 
-inline float32x4_t Cos(const float32x4_t d) {
+__attribute__((always_inline))
+static inline float32x4_t Cos(const float32x4_t d) {
 
-    constexpr float C0 = 0.99940307;
-    constexpr float C1 = -0.49558072;
-    constexpr float C2 = 0.03679168;
+    const float32x4_t C0 = vdupq_n_f32(0.99940307);
+    const float32x4_t C1 = vdupq_n_f32(-0.49558072);
+    const float32x4_t C2 = vdupq_n_f32(0.03679168);
     constexpr float C3 = -0.00434102;
     float32x4_t x2 = vmulq_f32(d, d);
-    return vmlaq_f32(vdupq_n_f32(C0), x2, vmlaq_f32(vdupq_n_f32(C1), x2, vmlaq_f32(vdupq_n_f32(C2), x2, vdupq_n_f32(C3))));
+    return vmlaq_f32(C0, x2, vmlaq_f32(C1, x2, vmlaq_n_f32(C2, x2, C3)));
 }
 
-inline float32x4_t CubicInterpolation(const float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t FastSin(const float32x4_t v) {
+    constexpr float A = 4.0f/(M_PI*M_PI);
+    const float32x4_t P = vdupq_n_f32(0.1952403377008734f);
+    const float32x4_t Q = vdupq_n_f32(0.01915214119105392f);
+    const float32x4_t N_PI = vdupq_n_f32(M_PI);
+
+    float32x4_t y = vmulq_f32(vmulq_n_f32(v, A), vsubq_f32(N_PI, v));
+
+    const float32x4_t fract = vsubq_f32(vsubq_f32(vdupq_n_f32(1.0f), P), Q);
+    return vmulq_f32(y, vmlaq_f32(fract, y, vmlaq_f32(P, y, Q)));
+}
+
+__attribute__((always_inline))
+static inline float32x4_t Sinc(const float32x4_t v) {
+    const float32x4_t zeros = vdupq_n_f32(0);
+    const float32x4_t ones = vdupq_n_f32(0);
+    uint32x4_t mask = vceqq_f32(v, zeros);
+    // if < 0 then set to 1
+    float32x4_t x = vbslq_f32(mask, ones, v);
+    x = vmulq_f32(FastSin(v), vrecpeq_f32(v));
+    // elements that were < 0 set to zero
+    x = vbslq_f32(mask, zeros, v);
+    return x;
+}
+
+__attribute__((always_inline))
+static inline float32x4_t LanczosWindow(const float32x4_t v, const float a) {
+    const float32x4_t fullLength = vdupq_n_f32(a);
+    const float32x4_t invLength = vrecpeq_f32(fullLength);
+    const float32x4_t zeros = vdupq_n_f32(0);
+    uint32x4_t mask = vcltq_f32(vabsq_f32(v), fullLength);
+    float32x4_t rv = vmulq_n_f32(v, M_PI);
+    float32x4_t x = vmulq_f32(Sinc(rv), Sinc(vmulq_f32(v, invLength)));
+    x = vbslq_f32(mask, zeros, x);
+    return x;
+}
+
+__attribute__((always_inline))
+static inline float32x4_t HannWindow(const float32x4_t d, const float length) {
+    const float32x4_t fullLength = vrecpeq_f32(vdupq_n_f32(length));
+    const float32x4_t halfLength = vdupq_n_f32(length / 2);
+    const float32x4_t zeros = vdupq_n_f32(0);
+    uint32x4_t mask = vcltq_f32(vabsq_f32(d), halfLength);
+    float32x4_t cx = Cos(vmulq_f32(vmulq_n_f32(d, M_PI), fullLength));
+    cx = vmulq_f32(vmulq_f32(cx, cx), fullLength);
+    return vbslq_f32(mask, zeros, cx);
+}
+
+__attribute__((always_inline))
+static inline float32x4_t CubicInterpolation(const float32x4_t d,
                                const float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3,
                                const float C, const float B) {
 
@@ -92,17 +143,8 @@ inline float32x4_t CubicInterpolation(const float32x4_t d,
     return result;
 }
 
-inline float32x4_t HannWindow(const float32x4_t d, const float length) {
-    float32x4_t x = vabsq_f32(d);
-    uint32x4_t mask = vcltq_f32(x, vdupq_n_f32(length / 2));
-
-    x = Cos(vdivq_f32(vmulq_f32(vdupq_n_f32(M_PI), x), vdupq_n_f32(length)));
-    x = vmulq_n_f32(vmulq_f32(x, x), length / 2);
-    x = vbslq_f32(mask, vdupq_n_f32(0), x);
-    return x;
-}
-
-inline float32x4_t CatmullRom(const float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t CatmullRom(const float32x4_t d,
                               const float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3) {
 
     float32x4_t x = vabsq_f32(d);
@@ -119,7 +161,8 @@ inline float32x4_t CatmullRom(const float32x4_t d,
     return result;
 }
 
-inline float32x4_t SimpleCubic(const float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t SimpleCubic(const float32x4_t d,
                                const float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3) {
 
     float32x4_t duplet = vmulq_f32(d, d);
@@ -139,17 +182,20 @@ inline float32x4_t SimpleCubic(const float32x4_t d,
     return result;
 }
 
-inline float32x4_t MitchellNetravali(float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t MitchellNetravali(float32x4_t d,
                               float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3) {
     return CubicInterpolation(d, p0, p1, p2, p3, 1.0f/3.0f, 1.0f/3.0f);
 }
 
-inline float32x4_t CubicHermite(const float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t CubicHermite(const float32x4_t d,
                                const float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3) {
     return CubicInterpolation(d, p0, p1, p2, p3, 0.0f, 0.0f);
 }
 
-inline float32x4_t CubicBSpline(const float32x4_t d,
+__attribute__((always_inline))
+static inline float32x4_t CubicBSpline(const float32x4_t d,
                                const float32x4_t p0, const float32x4_t p1, const float32x4_t p2, const float32x4_t p3) {
     return CubicInterpolation(d, p0, p1, p2, p3, 0.0f, 1.0f);
 }

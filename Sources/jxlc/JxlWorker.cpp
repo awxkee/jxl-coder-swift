@@ -234,7 +234,7 @@ bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysi
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
                       JxlPixelType colorspace, JxlCompressionOption compression_option,
-                      float compression_distance, int effort) {
+                      float compressionDistance, int effort) {
     auto enc = JxlEncoderMake(/*memory_manager=*/nullptr);
     auto runner = JxlThreadParallelRunnerMake(
             /*memory_manager=*/nullptr,
@@ -311,9 +311,17 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
     }
 
     if (JXL_ENC_SUCCESS !=
-               JxlEncoderSetFrameDistance(frameSettings, compression_distance)) {
+               JxlEncoderSetFrameDistance(frameSettings, compressionDistance)) {
         return false;
     }
+
+    if (colorspace == rgba) {
+        if (JXL_ENC_SUCCESS !=
+                   JxlEncoderSetExtraChannelDistance(frameSettings, 0, compressionDistance)) {
+            return false;
+        }
+    }
+
 
     if (JxlEncoderFrameSettingsSetOption(frameSettings,
                                          JXL_ENC_FRAME_SETTING_EFFORT, effort) != JXL_ENC_SUCCESS) {
