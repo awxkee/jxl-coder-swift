@@ -105,7 +105,7 @@ static inline float32x4_t LanczosWindow(const float32x4_t v, const float a) {
     uint32x4_t mask = vcltq_f32(vabsq_f32(v), fullLength);
     float32x4_t rv = vmulq_n_f32(v, M_PI);
     float32x4_t x = vmulq_f32(Sinc(rv), Sinc(vmulq_f32(v, invLength)));
-    x = vbslq_f32(mask, zeros, x);
+    x = vbslq_f32(mask, x, zeros);
     return x;
 }
 
