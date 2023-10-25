@@ -32,7 +32,7 @@ inline half_float::half castU16(uint16_t t) {
     return result;
 }
 
-static void SetRowF16(int components, int inputWidth, float *rgb, const uint16_t *row, bool useNEONIfAvailable, float weight, int xi) {
+inline static void SetRowF16(int components, int inputWidth, float *rgb, const uint16_t *row, bool useNEONIfAvailable, float weight, int xi) {
 #if __arm64__
     if (useNEONIfAvailable) {
         auto row16 = reinterpret_cast<const float16_t*>(&row[clamp(xi, 0, inputWidth - 1)*components]);
@@ -59,37 +59,6 @@ static void SetRowF16(int components, int inputWidth, float *rgb, const uint16_t
         }
     }
 }
-
-#if __arm64__
-__attribute__((always_inline))
-inline void NeonSampleF16Row(const float32x4_t aHigh, const float32x4_t aLow,
-                             int components, float dyWeight, int inputHeight, int inputWidth,
-                             float kx1, float lanczosFA, KernelWindowNEONFunc neonSampler,
-                             float *rgb, const uint8_t *src8, int srcStride, float srcX,
-                             bool useNEONIfAvailable, float &weightSum, int yj) {
-    const float32x4_t vkx = vdupq_n_f32(kx1);
-    const float32x4_t vSrcX = vdupq_n_f32(srcX);
-    const float32x4_t xjLow = vaddq_f32(vkx, aLow);
-    const float32x4_t xjHigh = vaddq_f32(vkx, aHigh);
-    float32x4_t vdxLow = vsubq_f32(vSrcX, xjLow);
-    float32x4_t vdxHigh = vsubq_f32(vSrcX, xjHigh);
-    float32x4_t lowWeight = vmulq_n_f32(neonSampler(vdxLow, lanczosFA), dyWeight);
-    float32x4_t highWeight = vmulq_n_f32(neonSampler(vdxHigh, lanczosFA), dyWeight);
-
-    weightSum += vaddvq_f32(lowWeight);
-    highWeight = vsetq_lane_f32(0, highWeight, 2);
-    highWeight = vsetq_lane_f32(0, highWeight, 3);
-    weightSum += vaddvq_f32(highWeight);
-
-    auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 0), vgetq_lane_f32(xjLow, 0));
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 1), vgetq_lane_f32(xjLow, 1));
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 2), vgetq_lane_f32(xjLow, 2));
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 3), vgetq_lane_f32(xjLow, 3));
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(highWeight, 0), vgetq_lane_f32(xjHigh, 0));
-    SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(highWeight, 1), vgetq_lane_f32(xjHigh, 1));
-}
-#endif
 
 static void scaleRowF16(int components, int dstStride, int inputHeight, int inputWidth, XSampler option, uint16_t *output, int outputWidth, const uint8_t *src8, int srcStride, bool useNEONIfAvailable, float xScale, int y, float yScale) {
     auto dst8 = reinterpret_cast<uint8_t*>(output) + y * dstStride;
@@ -268,21 +237,12 @@ static void scaleRowF16(int components, int dstStride, int inputHeight, int inpu
             }
         } else if (option == lanczos || option == hann) {
             KernelWindow2Func sampler;
-#if __arm64__
-            KernelWindowNEONFunc neonSampler;
-#endif
             switch (option) {
                 case hann:
                     sampler = HannWindow<float>;
-#if __arm64__
-                    neonSampler = HannWindow;
-#endif
                     break;
                 default:
                     sampler = LanczosWindow<float>;
-#if __arm64__
-                    neonSampler = LanczosWindow;
-#endif
             }
             float rgb[components];
             fill(rgb, rgb + components, 0.0f);
@@ -295,59 +255,22 @@ static void scaleRowF16(int components, int dstStride, int inputHeight, int inpu
 
             float weightSum(0.0f);
 
-#if __arm64__
-            const float32x4_t aLow = { -2, -1, 0, 1 };
-            const float32x4_t aHigh = { 2, 3, 0, 0 };
-            const float32x4_t vky = vdupq_n_f32(ky1);
-            const float32x4_t vSrcY = vdupq_n_f32(srcY);
-            const float32x4_t yjLow = vaddq_f32(vky, aLow);
-            const float32x4_t yjHigh = vaddq_f32(vky, aHigh);
-            float32x4_t vdyLow = vsubq_f32(vSrcY, yjLow);
-            float32x4_t vdyHigh = vsubq_f32(vSrcY, yjHigh);
-
-            float32x4_t wLow = neonSampler(vdyLow, lanczosFA);
-            float32x4_t wHigh = neonSampler(vdyLow, lanczosFA);
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 0), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjLow, 0));
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 1), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjLow, 1));
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 2), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjLow, 2));
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 3), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjLow, 3));
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wHigh, 0), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjHigh, 0));
-
-            NeonSampleF16Row(aHigh, aLow, components, vgetq_lane_f32(wHigh, 1), inputHeight, inputWidth, kx1,
-                             lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                             vgetq_lane_f32(yjHigh, 1));
-#else
             for (int j = -a + 1; j <= a; j++) {
                 int yj = ky1 + j;
                 float dy = float(srcY) - (float(ky1) + (float)j);
                 float dyWeight = sampler(dy, lanczosFA);
+                auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
+
                 for (int i = -a + 1; i <= a; i++) {
                     int xi = kx1 + i;
                     float dx = float(srcX) - (float(kx1) + (float)i);
                     float weight = sampler(dx, lanczosFA) * dyWeight;
                     weightSum += weight;
 
-                    auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-
                     SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
                 }
             }
-#endif
+
             bool useNeonAccumulator = components == 4 || components == 3;
 #if __arm64__
             if (useNEONIfAvailable && useNeonAccumulator) {
@@ -638,37 +561,6 @@ static void SetRowU8(int components, int inputWidth, float *rgb, const uint8_t *
     }
 }
 
-#if __arm64
-__attribute__((always_inline))
-inline void NeonSampleU8Row(const float32x4_t aHigh, const float32x4_t aLow,
-                            int components, float dyWeight, int inputHeight, int inputWidth,
-                            float kx1, float lanczosFA, KernelWindowNEONFunc neonSampler,
-                            float *rgb, const uint8_t *src8, int srcStride, float srcX,
-                            bool useNEONIfAvailable, float &weightSum, int yj) {
-    const float32x4_t vkx = vdupq_n_f32(kx1);
-    const float32x4_t vSrcX = vdupq_n_f32(srcX);
-    const float32x4_t xjLow = vaddq_f32(vkx, aLow);
-    const float32x4_t xjHigh = vaddq_f32(vkx, aHigh);
-    float32x4_t vdxLow = vsubq_f32(vSrcX, xjLow);
-    float32x4_t vdxHigh = vsubq_f32(vSrcX, xjHigh);
-    float32x4_t lowWeight = vmulq_n_f32(neonSampler(vdxLow, lanczosFA), dyWeight);
-    float32x4_t highWeight = vmulq_n_f32(neonSampler(vdxHigh, lanczosFA), dyWeight);
-
-    weightSum += vaddvq_f32(lowWeight);
-    highWeight = vsetq_lane_f32(0, highWeight, 2);
-    highWeight = vsetq_lane_f32(0, highWeight, 3);
-    weightSum += vaddvq_f32(highWeight);
-
-    auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 0), vgetq_lane_f32(xjLow, 0));
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 1), vgetq_lane_f32(xjLow, 1));
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 2), vgetq_lane_f32(xjLow, 2));
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(lowWeight, 3), vgetq_lane_f32(xjLow, 3));
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(highWeight, 0), vgetq_lane_f32(xjHigh, 0));
-    SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, vgetq_lane_f32(highWeight, 1), vgetq_lane_f32(xjHigh, 1));
-}
-#endif
-
 static void scaleRowU8(int components, int dstStride, int inputHeight, int inputWidth, float maxColors, XSampler option, uint8_t *output, int outputWidth, const uint8_t *src8, int srcStride, bool useNEONIfAvailable, float xScale, size_t y, float yScale) {
     auto dst8 = reinterpret_cast<uint8_t*>(output + y * dstStride);
     auto dst = reinterpret_cast<uint8_t*>(dst8);
@@ -850,21 +742,12 @@ static void scaleRowU8(int components, int dstStride, int inputHeight, int input
             }
         } else if (option == lanczos || option == hann) {
             KernelWindow2Func sampler;
-#if __arm64__
-            KernelWindowNEONFunc neonSampler;
-#endif
             switch (option) {
                 case hann:
                     sampler = HannWindow<float>;
-#if __arm64__
-                    neonSampler = HannWindow;
-#endif
                     break;
                 default:
                     sampler = LanczosWindow<float>;
-#if __arm64__
-                    neonSampler = LanczosWindow;
-#endif
             }
             float rgb[4];
             fill(rgb, rgb + 4, 0.0f);
@@ -880,59 +763,21 @@ static void scaleRowU8(int components, int dstStride, int inputHeight, int input
 
             const bool useNeonAccumulator = components == 4 || components == 3;
 
-#if __arm64__
-            const float32x4_t aLow = { -2, -1, 0, 1 };
-            const float32x4_t aHigh = { 2, 3, 0, 0 };
-            const float32x4_t vky = vdupq_n_f32(ky1);
-            const float32x4_t vSrcY = vdupq_n_f32(srcY);
-            const float32x4_t yjLow = vaddq_f32(vky, aLow);
-            const float32x4_t yjHigh = vaddq_f32(vky, aHigh);
-            float32x4_t vdyLow = vsubq_f32(vSrcY, yjLow);
-            float32x4_t vdyHigh = vsubq_f32(vSrcY, yjHigh);
-
-            float32x4_t wLow = neonSampler(vdyLow, lanczosFA);
-            float32x4_t wHigh = neonSampler(vdyLow, lanczosFA);
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 0), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjLow, 0));
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 1), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjLow, 1));
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 2), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjLow, 2));
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wLow, 3), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjLow, 3));
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wHigh, 0), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjHigh, 0));
-
-            NeonSampleU8Row(aHigh, aLow, components, vgetq_lane_f32(wHigh, 1), inputHeight, inputWidth, kx1,
-                            lanczosFA, neonSampler, rgb, src8, srcStride, srcX, useNEONIfAvailable, weightSum,
-                            vgetq_lane_f32(yjHigh, 1));
-#else
             for (int j = -a + 1; j <= a; j++) {
                 int yj = ky1 + j;
                 float dy = float(srcY) - (float(ky1) + (float)j);
                 float dyWeight = sampler(dy, (float)lanczosFA);
+                auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
+
                 for (int i = -a + 1; i <= a; i++) {
                     int xi = kx1 + i;
                     float dx = float(srcX) - (float(kx1) + (float)i);
                     float weight = sampler(dx, (float)lanczosFA) * dyWeight;
                     weightSum += weight;
 
-                    auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
                     SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
                 }
             }
-#endif
-
 #if __arm64__
             if (useNEONIfAvailable && useNeonAccumulator) {
                 if (components == 4) {

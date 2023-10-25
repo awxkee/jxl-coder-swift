@@ -38,7 +38,7 @@ public class JXLCoder {
     public static func decode(srcStream: InputStream, 
                               rescale: CGSize = .zero,
                               pixelFormat: JXLPreferredPixelFormat = .optimal,
-                              sampler: JxlSampler = .mitchell) throws -> JXLPlatformImage {
+                              sampler: JxlSampler = .hann) throws -> JXLPlatformImage {
         return try shared.decode(srcStream, rescale: rescale, pixelFormat: pixelFormat, sampler: sampler)
     }
 
@@ -49,7 +49,7 @@ public class JXLCoder {
     public static func decode(url: URL, 
                               rescale: CGSize = .zero,
                               pixelFormat: JXLPreferredPixelFormat = .optimal,
-                              sampler: JxlSampler = .mitchell) throws -> JXLPlatformImage {
+                              sampler: JxlSampler = .hann) throws -> JXLPlatformImage {
         guard let srcStream = InputStream(url: url) else {
             throw NSError(domain: "JXLCoder", code: 500,
                           userInfo: [NSLocalizedDescriptionKey: "JXLCoder cannot open provided URL"])
@@ -64,7 +64,7 @@ public class JXLCoder {
     public static func decode(data: Data, 
                               rescale: CGSize = .zero,
                               pixelFormat: JXLPreferredPixelFormat = .optimal,
-                              sampler: JxlSampler = .mitchell) throws -> JXLPlatformImage {
+                              sampler: JxlSampler = .hann) throws -> JXLPlatformImage {
         let srcStream = InputStream(data: data)
         return try shared.decode(srcStream, rescale: rescale, pixelFormat: pixelFormat, sampler: sampler)
     }

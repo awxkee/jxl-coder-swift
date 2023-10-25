@@ -218,12 +218,11 @@ inline T LanczosWindow(T x, const T a) {
 
 template <typename T>
 inline T HannWindow(T x, const T length) {
-    if (abs(x) <= length / 2) {
-        T cx = fastCos(T(M_PI)*x / length);
-        return (1/length)*cx*cx;
-    } else {
-        return T(0);
+    const float size = length * 2 - 1;
+    if (abs(x) <= size) {
+        return 0.5f * (1 - fastCos(T(2)*T(M_PI) * size / length));
     }
+    return T(0);
 }
 
 template <typename T>

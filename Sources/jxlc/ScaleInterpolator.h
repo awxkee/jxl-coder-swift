@@ -57,6 +57,9 @@ D DemoteTo(T t, float maxColors);
 template <typename T>
 T CubicBSpline(T t);
 
+template <typename T>
+T LanczosWindow(T x, const T a);
+
 #if __arm64__
 #include <arm_neon.h>
 
@@ -69,6 +72,58 @@ static inline float32x4_t Cos(const float32x4_t d) {
     constexpr float C3 = -0.00434102;
     float32x4_t x2 = vmulq_f32(d, d);
     return vmlaq_f32(C0, x2, vmlaq_f32(C1, x2, vmlaq_n_f32(C2, x2, C3)));
+}
+
+/** Sin polynomial coefficients */
+constexpr float te_sin_coeff2 = 0.166666666666f; // 1/(2*3)
+constexpr float te_sin_coeff3 = 0.05f;           // 1/(4*5)
+constexpr float te_sin_coeff4 = 0.023809523810f; // 1/(6*7)
+constexpr float te_sin_coeff5 = 0.013888888889f; // 1/(8*9)
+
+__attribute__((always_inline))
+inline float32x4_t vsinq_f32(float32x4_t val)
+{
+    const float32x4_t pi_v   = vdupq_n_f32(M_PI);
+    const float32x4_t pio2_v = vdupq_n_f32(M_PI / 2);
+    const float32x4_t ipi_v  = vdupq_n_f32(1 / M_PI);
+
+    //Find positive or negative
+    const int32x4_t  c_v    = vabsq_s32(vcvtq_s32_f32(vmulq_f32(val, ipi_v)));
+    const uint32x4_t sign_v = vcleq_f32(val, vdupq_n_f32(0));
+    const uint32x4_t odd_v  = vandq_u32(vreinterpretq_u32_s32(c_v), vdupq_n_u32(1));
+
+    uint32x4_t neg_v = veorq_u32(odd_v, sign_v);
+
+    //Modulus a - (n * int(a*(1/n)))
+    float32x4_t      ma    = vsubq_f32(vabsq_f32(val), vmulq_f32(pi_v, vcvtq_f32_s32(c_v)));
+    const uint32x4_t reb_v = vcgeq_f32(ma, pio2_v);
+
+    //Rebase a between 0 and pi/2
+    ma = vbslq_f32(reb_v, vsubq_f32(pi_v, ma), ma);
+
+    //Taylor series
+    const float32x4_t ma2 = vmulq_f32(ma, ma);
+
+    //2nd elem: x^3 / 3!
+    float32x4_t elem = vmulq_f32(vmulq_f32(ma, ma2), vdupq_n_f32(te_sin_coeff2));
+    float32x4_t res  = vsubq_f32(ma, elem);
+
+    //3rd elem: x^5 / 5!
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(te_sin_coeff3));
+    res  = vaddq_f32(res, elem);
+
+    //4th elem: x^7 / 7!float32x2_t vsin_f32(float32x2_t val)
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(te_sin_coeff4));
+    res  = vsubq_f32(res, elem);
+
+    //5th elem: x^9 / 9!
+    elem = vmulq_f32(vmulq_f32(elem, ma2), vdupq_n_f32(te_sin_coeff5));
+    res  = vaddq_f32(res, elem);
+
+    //Change of sign
+    neg_v = vshlq_n_u32(neg_v, 31);
+    res   = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(res), neg_v));
+    return res;
 }
 
 __attribute__((always_inline))
@@ -87,7 +142,7 @@ static inline float32x4_t FastSin(const float32x4_t v) {
 __attribute__((always_inline))
 static inline float32x4_t Sinc(const float32x4_t v) {
     const float32x4_t zeros = vdupq_n_f32(0);
-    const float32x4_t ones = vdupq_n_f32(0);
+    const float32x4_t ones = vdupq_n_f32(1);
     uint32x4_t mask = vceqq_f32(v, zeros);
     // if < 0 then set to 1
     float32x4_t x = vbslq_f32(mask, ones, v);
@@ -104,20 +159,22 @@ static inline float32x4_t LanczosWindow(const float32x4_t v, const float a) {
     const float32x4_t zeros = vdupq_n_f32(0);
     uint32x4_t mask = vcltq_f32(vabsq_f32(v), fullLength);
     float32x4_t rv = vmulq_n_f32(v, M_PI);
-    float32x4_t x = vmulq_f32(Sinc(rv), Sinc(vmulq_f32(v, invLength)));
+    float32x4_t x = vmulq_f32(Sinc(rv), Sinc(vmulq_f32(rv, invLength)));
     x = vbslq_f32(mask, x, zeros);
     return x;
 }
 
 __attribute__((always_inline))
 static inline float32x4_t HannWindow(const float32x4_t d, const float length) {
-    const float32x4_t fullLength = vrecpeq_f32(vdupq_n_f32(length));
-    const float32x4_t halfLength = vdupq_n_f32(length / 2);
+    const float doublePi = 2 * M_PI;
+    const float32x4_t wndSize = vdupq_n_f32(length * 2 - 1);
+    const float32x4_t rWndSize = vrecpeq_f32(wndSize);
+    uint32x4_t mask = vcgtq_f32(vabsq_f32(d), wndSize);
+    const float32x4_t ones = vdupq_n_f32(1);
+    float32x4_t cx = vmulq_n_f32(vsubq_f32(ones, Cos(vmulq_f32(vmulq_n_f32(d, doublePi), rWndSize))), 0.5f);
     const float32x4_t zeros = vdupq_n_f32(0);
-    uint32x4_t mask = vcltq_f32(vabsq_f32(d), halfLength);
-    float32x4_t cx = Cos(vmulq_f32(vmulq_n_f32(d, M_PI), fullLength));
-    cx = vmulq_f32(vmulq_f32(cx, cx), fullLength);
-    return vbslq_f32(mask, zeros, cx);
+    cx = vbslq_f32(mask, zeros, cx);
+    return cx;
 }
 
 __attribute__((always_inline))
@@ -219,9 +276,6 @@ T MitchellNetravali(T d, T p0, T p1, T p2, T p3);
 
 template <typename T>
 T sinc(T x);
-
-template <typename T>
-T LanczosWindow(T x, const T a);
 
 template <typename T>
 T HannWindow(T x, const T length);
