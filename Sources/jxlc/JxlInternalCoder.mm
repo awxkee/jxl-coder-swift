@@ -232,6 +232,11 @@ static inline float JXLGetDistance(const int quality)
             return nil;
         }
 
+        if (!isJXL(imageData)) {
+            *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Not an JXL image" }];
+            return nil;
+        }
+
         std::vector<uint8_t> iccProfile;
         size_t xSize, ySize;
         bool useFloats;

@@ -68,11 +68,6 @@ public:
             throw AnimatedEncoderError(str);
         }
 
-        if (JXL_ENC_SUCCESS != JxlEncoderUseContainer(enc.get(), JXL_TRUE)) {
-            std::string str = "Cannot initialize container";
-            throw AnimatedEncoderError(str);
-        }
-
         pixelFormat = {3, JXL_TYPE_UINT8, JXL_BIG_ENDIAN, 0};
         switch (pixelType) {
             case rgb:
@@ -101,7 +96,6 @@ public:
         basicInfo.animation.num_loops = static_cast<uint32_t>(numLoops);
         basicInfo.animation.have_timecodes = false;
         basicInfo.have_animation = true;
-        basicInfo.have_container = true;
 
         if (JXL_ENC_SUCCESS != JxlEncoderSetCodestreamLevel(enc.get(), 10)) {
             std::string str = "Cannot set codestream level";
@@ -218,6 +212,7 @@ private:
     const JxlEncodingPixelFormat encodingPixelFormat;
     const JxlCompressionOption compressionOption;
     JxlPixelFormat pixelFormat;
+    int addedFrames = 0;
 
     JxlEncoderPtr enc = JxlEncoderMake(nullptr);
     JxlThreadParallelRunnerPtr runner = JxlThreadParallelRunnerMake(nullptr,

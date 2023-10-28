@@ -1,11 +1,13 @@
 # JxlCoder
 
 ## What's This?
-This package is provides support for Jpeg XL images for all apple platforms. Supports encode JXL ( Jpeg XL) on iOS, MacOS and decode JXL ( Jpeg XL ) images in convinient and fast way.
+This package is provides support for Jpeg XL images for all apple platforms.
+Supports encode JXL ( Jpeg XL ) on iOS, MacOS and decode JXL ( Jpeg XL ) images in convinient and fast way for the single image and animation.
 
 A package to decode Jpeg XL on iOS, MacOS or encode JXL images. Also provider JXL support on iOS for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support Jpeg XL images. Also support Objective C interoping for old projects via Cocoapods
 
-Supported ICC Profiles and HDR images.
+Supported ICC Profiles and HDR images. Also supports animated JPEG XL images decoding and encoding.
+Contains integration for SDWebImage to decode single image and animated Jpeg XL images.
 
 Package based on `libjxl`
 </br>
@@ -42,6 +44,27 @@ import JxlCoder
 let uiImage: UIImage? = JXLCoder.decode(data: Data()) // or any max CGSize of image
 // Compress
 let data: Data = try JXLCoder.encode(data: UIImage())
+```
+
+## Usage for animations
+```swift
+// Decoding
+let decoder = try! JXLAnimatedDecoder(data: animationJxlData)
+let framesCount = Int(decoder.numberOfFrames)
+print("frames count \(framesCount)")
+let duration = decoder.frameDuration(currentFrame)
+let frame: UIImage = try! decoder.get(frame: currentFrame)
+
+// Encoding
+let animEncoder = try! JXLAnimatedEncoder(width: frameToAnimate.size.width,
+                                         height: frameToAnimate.size.height)
+try! animEncoder.add(frame: frameToAnimate, duration: 150) // duration is in ms
+try! animEncoder.add(frame: frameToAnimate, duration: 150)
+try! animEncoder.add(frame: frameToAnimate, duration: 150)
+try! animEncoder.add(frame: frameToAnimate, duration: 150)
+try! animEncoder.add(frame: frameToAnimate, duration: 150)
+// etc and then finish the encoding
+let animationJxlData = try! animEncoder.finish()
 ```
 
 ## Nuke Plugin
@@ -91,7 +114,7 @@ extension JxlNukePlugin {
 ```
 
 ## Jxl SDWebImagePlugin
-### Use provided code or include pod `JxlSDWebImageCoder`
+### Use provided code or include pod `JxlSDWebImageCoder` or include the code below
 ```swift
 #if canImport(JxlCoder)
 import JxlCoder
@@ -128,9 +151,10 @@ public class JxlSDWebImageCoder: NSObject, SDImageCoder {
     }
 }
 
-// after register the plugin
+// don't forget to register the plugin after
 SDImageCodersManager.shared.addCoder(JxlSDWebImageCoder())
-
+// IMPORTANT: if you will use the animated Jpeg XL image you have to use other plugin
+SDImageCodersManager.shared.addCoder(JxlAnimatedSDWebImageCoder())
 ```
 
 Currently, JXL nuke plugin do not support animated JXLs so you have to do it yourself

@@ -1,8 +1,8 @@
 //
-//  JXLCoder.swift
+//  JXLAnimatedDeocder.swift
 //  Jxl Coder [https://github.com/awxkee/jxl-coder-swift]
 //
-//  Created by Radzivon Bartoshyk on 27/08/2023.
+//  Created by Radzivon Bartoshyk on 28/10/2023.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -24,13 +24,30 @@
 //
 
 import Foundation
-#if !os(macOS)
-import UIKit.UIImage
-import UIKit.UIColor
-/// Alias for `UIImage`.
-public typealias JXLPlatformImage = UIImage
-#else
-import AppKit.NSImage
-/// Alias for `NSImage`.
-public typealias JXLPlatformImage = NSImage
-#endif
+import jxlc
+
+public class JXLAnimatedDecoder {
+
+    private let dec: CJpegXLAnimatedDecoder
+
+    public init(data: Data) throws {
+        dec = try CJpegXLAnimatedDecoder(data)
+    }
+
+    public var numberOfFrames: Int {
+        Int(dec.framesCount())
+    }
+
+    public func frameDuration(_ frame: Int) -> Int {
+        return Int(dec.frameDuration(Int32(frame)))
+    }
+
+    public var loopsCount: Int {
+        Int(dec.loopCount())
+    }
+
+    public func get(frame: Int) throws -> JXLPlatformImage {
+        try dec.get(Int32(frame))
+    }
+
+}

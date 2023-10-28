@@ -1,8 +1,8 @@
 //
-//  JpegXLAnimatedDecoder.h
+//  CAnimatedEncoder.h
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
-//  Created by Radzivon Bartoshyk on 27/10/2023.
+//  Created by Radzivon Bartoshyk on 26/10/2023.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,19 +23,19 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JPEGXL_ANIMATED_DECODER_H
-#define JPEGXL_ANIMATED_DECODER_H
+#ifndef CANIMATED_ENCODER_H
+#define CANIMATED_ENCODER_H
 
 #import "JXLSystemImage.hpp"
 #import <Foundation/Foundation.h>
 
-@interface JpegXLAnimatedDecoder : NSObject
--(nullable id)initWith:(nonnull NSData*)data error:(NSError * _Nullable *_Nullable)error;
--(NSUInteger)framesCount;
--(int)frameDuration:(int)frame;
--(int)loopCount;
--(nullable JXLSystemImage *)get:(int)frame
-                            error:(NSError *_Nullable * _Nullable)error;
+@interface CJpegXLAnimatedEncoder : NSObject
+-(nullable id)initWith:(int)width height:(int)height numLoops:(int)numLoops colorSpace:(JXLColorSpace)colorSpace
+    compressionOption:(JXLCompressionOption)compressionOption
+    effort:(int)effort
+    quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
+-(nullable void*)addFrame:(nonnull JXLSystemImage *)platformImage duration:(int)duration error:(NSError * _Nullable *_Nullable)error;
+-(nullable NSData*)finish:(NSError * _Nullable *_Nullable)error;
 @end
 
-#endif /* JPEGXL_ANIMATED_DECODER_H */
+#endif /* CANIMATED_ENCODER_H */

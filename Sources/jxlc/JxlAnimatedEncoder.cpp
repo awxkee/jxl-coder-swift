@@ -28,6 +28,8 @@
 void JxlAnimatedEncoder::addFrame(std::vector<uint8_t>& data, int frameTime) {
     std::lock_guard guard(lock);
 
+    addedFrames += 1;
+
     JxlEncoderInitFrameHeader(&header);
     header.timecode = 0;
     header.duration = frameTime;
@@ -53,6 +55,10 @@ void JxlAnimatedEncoder::addFrame(std::vector<uint8_t>& data, int frameTime) {
 
 void JxlAnimatedEncoder::encode(std::vector<uint8_t>& dst) {
     std::lock_guard guard(lock);
+    if (addedFrames == 0) {
+        std::string str = "Cannot compress empty animation";
+        throw AnimatedEncoderError(str);
+    }
     JxlEncoderCloseFrames(enc.get());
 
     dst.resize(64);

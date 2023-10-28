@@ -28,8 +28,8 @@
 
 #import <Foundation/Foundation.h>
 #import "JXLSystemImage.hpp"
-#import "JpegXLAnimatedEncoder.h"
-#import "JpegXLAnimatedDecoder.h"
+#import "CJpegXLAnimatedEncoder.h"
+#import "CJpegXLAnimatedDecoder.h"
 
 @interface JxlInternalCoder: NSObject
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 

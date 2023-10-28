@@ -355,3 +355,10 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
 
     return true;
 }
+
+bool isJXL(std::vector<uint8_t>& src) {
+    if (JXL_SIG_INVALID == JxlSignatureCheck(src.data(), src.size())) {
+        return false;
+    }
+    return true;
+}

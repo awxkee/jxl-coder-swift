@@ -1,5 +1,5 @@
 //
-//  JpegXLAnimatedDecoder.mm
+//  CJpegXLAnimatedDecoder.mm
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
 //  Created by Radzivon Bartoshyk on 27/10/2023.
@@ -24,7 +24,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "JpegXLAnimatedDecoder.h"
+#import "CJpegXLAnimatedDecoder.h"
 #import "JxlAnimatedDecoder.hpp"
 #include <vector>
 
@@ -40,7 +40,7 @@ static void JXLDCGData8ProviderReleaseDataCallback(void *info, const void *data,
     delete dataWrapper;
 }
 
-@implementation JpegXLAnimatedDecoder {
+@implementation CJpegXLAnimatedDecoder {
     JxlAnimatedDecoder* dec;
     std::vector<uint8_t> mSrc;
 }
@@ -151,6 +151,7 @@ static void JXLDCGData8ProviderReleaseDataCallback(void *info, const void *data,
 -(void)deinit {
     if (dec) {
         delete dec;
+        dec = nullptr;
     }
     mSrc.clear();
 }

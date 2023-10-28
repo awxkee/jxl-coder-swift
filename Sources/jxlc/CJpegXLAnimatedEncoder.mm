@@ -24,7 +24,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "JpegXLAnimatedEncoder.h"
+#import "CJpegXLAnimatedEncoder.h"
 #import "JxlAnimatedEncoder.hpp"
 #import "JxlDefinitions.h"
 #import "RgbRgbaConverter.hpp"
@@ -41,7 +41,7 @@ public:
     std::vector<uint8_t> data;
 };
 
-@implementation JpegXLAnimatedEncoder {
+@implementation CJpegXLAnimatedEncoder {
     JxlAnimatedEncoder* enc;
 }
 
@@ -148,6 +148,7 @@ public:
 -(void)deinit {
     if (enc) {
         delete enc;
+        enc = nullptr;
     }
 }
 

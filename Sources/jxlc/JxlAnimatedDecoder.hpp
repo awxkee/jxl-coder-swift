@@ -64,6 +64,11 @@ public:
     JxlAnimatedDecoder(std::vector<uint8_t>& src) {
         this->data = src;
 
+        if (JXL_SIG_INVALID == JxlSignatureCheck(src.data(), src.size())) {
+            std::string str = "Not an JXL image";
+            throw AnimatedDecoderError(str);
+        }
+
         runner = JxlResizableParallelRunnerMake(nullptr);
 
         dec = JxlDecoderMake(nullptr);
