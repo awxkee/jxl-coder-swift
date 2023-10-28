@@ -24,7 +24,9 @@
 //
 
 import Foundation
+#if canImport(jxlc)
 import jxlc
+#endif
 
 public class JXLAnimatedDecoder {
 
