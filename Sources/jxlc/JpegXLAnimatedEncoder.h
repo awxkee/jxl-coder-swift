@@ -1,8 +1,8 @@
 //
-//  JxlInternalCoder.h
+//  CAnimatedEncoder.h
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
-//  Created by Radzivon Bartoshyk on 27/08/2023.
+//  Created by Radzivon Bartoshyk on 26/10/2023.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,26 +23,19 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JXLCoder_h
-#define JXLCoder_h
+#ifndef CANIMATED_ENCODER_H
+#define CANIMATED_ENCODER_H
 
-#import <Foundation/Foundation.h>
 #import "JXLSystemImage.hpp"
-#import "JpegXLAnimatedEncoder.h"
-#import "JpegXLAnimatedDecoder.h"
+#import <Foundation/Foundation.h>
 
-@interface JxlInternalCoder: NSObject
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
-                             rescale:(CGSize)rescale
-                             pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
-                             sampler:(JxlSampler)sampler
-                             error:(NSError *_Nullable * _Nullable)error;
-- (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
-- (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                     colorSpace:(JXLColorSpace)colorSpace
-                     compressionOption:(JXLCompressionOption)compressionOption
-                     effort:(int)effort
-                     quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
+@interface JpegXLAnimatedEncoder : NSObject
+-(nullable id)initWith:(int)width height:(int)height numLoops:(int)numLoops colorSpace:(JXLColorSpace)colorSpace
+    compressionOption:(JXLCompressionOption)compressionOption
+    effort:(int)effort
+    quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
+-(nullable void*)addFrame:(nonnull JXLSystemImage *)platformImage duration:(int)duration error:(NSError * _Nullable *_Nullable)error;
+-(nullable NSData*)finish:(NSError * _Nullable *_Nullable)error;
 @end
 
-#endif /* JXLCoder_h */
+#endif /* Header_h */

@@ -36,7 +36,7 @@
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,
                          size_t *ysize,
-                         std::vector<uint8_t> *icc_profile,
+                         std::vector<uint8_t> *iccProfile,
                          int* depth,
                          int* components,
                          bool* useFloats,
@@ -48,8 +48,8 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
     auto dec = JxlDecoderMake(nullptr);
     if (JXL_DEC_SUCCESS !=
         JxlDecoderSubscribeEvents(dec.get(), JXL_DEC_BASIC_INFO |
-                                             JXL_DEC_COLOR_ENCODING |
-                                             JXL_DEC_FULL_IMAGE)) {
+                                  JXL_DEC_COLOR_ENCODING |
+                                  JXL_DEC_FULL_IMAGE)) {
         return false;
     }
 
@@ -120,15 +120,15 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                 *useFloats = false;
             }
             JxlResizableParallelRunnerSetThreads(
-                    runner.get(),
-                    JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize));
+                                                 runner.get(),
+                                                 JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize));
         } else if (status == JXL_DEC_COLOR_ENCODING) {
             // Get the ICC color profile of the pixel data
 
-//            JxlColorEncoding colorEncoding;
-//            if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsEncodedProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &colorEncoding)) {
-//                return false;
-//            }
+            //            JxlColorEncoding colorEncoding;
+            //            if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsEncodedProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &colorEncoding)) {
+            //                return false;
+            //            }
 
             size_t icc_size;
             if (JXL_DEC_SUCCESS !=
@@ -136,12 +136,12 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                                             &icc_size)) {
                 return false;
             }
-            icc_profile->resize(icc_size);
+            iccProfile->resize(icc_size);
             if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsICCProfile(
-                    dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
-                    icc_profile->data(), icc_profile->size())) {
-                return false;
-            }
+                                                                  dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
+                                                                  iccProfile->data(), iccProfile->size())) {
+                                                                      return false;
+                                                                  }
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             size_t buffer_size;
             if (JXL_DEC_SUCCESS !=
@@ -153,12 +153,11 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             }
             pixels->resize(*xsize * *ysize * (*components) * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t)));
             void *pixelsBuffer = (void *) pixels->data();
-            size_t pixelsBufferSize = pixels->size() * (hdrImage ? sizeof(uint16_t) : sizeof(uint8_t));
-            
+
             if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(dec.get(),
                                                                &format,
                                                                pixelsBuffer,
-                                                               pixelsBufferSize)) {
+                                                               pixels->size())) {
                 return false;
             }
         } else if (status == JXL_DEC_FULL_IMAGE) {
@@ -181,8 +180,8 @@ bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysi
     auto dec = JxlDecoderMake(nullptr);
     if (JXL_DEC_SUCCESS !=
         JxlDecoderSubscribeEvents(dec.get(), JXL_DEC_BASIC_INFO |
-                                             JXL_DEC_COLOR_ENCODING |
-                                             JXL_DEC_FULL_IMAGE)) {
+                                  JXL_DEC_COLOR_ENCODING |
+                                  JXL_DEC_FULL_IMAGE)) {
         return false;
     }
 
@@ -233,12 +232,11 @@ bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysi
  */
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
-                      JxlPixelType colorspace, JxlCompressionOption compression_option,
+                      JxlPixelType colorspace, JxlCompressionOption compressionOption,
                       float compressionDistance, int effort) {
-    auto enc = JxlEncoderMake(/*memory_manager=*/nullptr);
-    auto runner = JxlThreadParallelRunnerMake(
-            /*memory_manager=*/nullptr,
-                               JxlThreadParallelRunnerDefaultNumWorkerThreads());
+    auto enc = JxlEncoderMake(nullptr);
+    auto runner = JxlThreadParallelRunnerMake(nullptr,
+                                              JxlThreadParallelRunnerDefaultNumWorkerThreads());
     if (JXL_ENC_SUCCESS != JxlEncoderSetParallelRunner(enc.get(),
                                                        JxlThreadParallelRunner,
                                                        runner.get())) {
@@ -255,29 +253,29 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
             break;
     }
 
-    JxlBasicInfo basic_info;
-    JxlEncoderInitBasicInfo(&basic_info);
-    basic_info.xsize = xsize;
-    basic_info.ysize = ysize;
-    basic_info.bits_per_sample = 8;
-    basic_info.uses_original_profile = compression_option == loosy ? JXL_FALSE : JXL_TRUE;
-    basic_info.num_color_channels = 3;
+    JxlBasicInfo basicInfo;
+    JxlEncoderInitBasicInfo(&basicInfo);
+    basicInfo.xsize = xsize;
+    basicInfo.ysize = ysize;
+    basicInfo.bits_per_sample = 8;
+    basicInfo.uses_original_profile = compressionOption == loosy ? JXL_FALSE : JXL_TRUE;
+    basicInfo.num_color_channels = 3;
 
     if (colorspace == rgba) {
-        basic_info.num_extra_channels = 1;
-        basic_info.alpha_bits = 8;
+        basicInfo.num_extra_channels = 1;
+        basicInfo.alpha_bits = 8;
     }
 
-    if (JXL_ENC_SUCCESS != JxlEncoderSetBasicInfo(enc.get(), &basic_info)) {
+    if (JXL_ENC_SUCCESS != JxlEncoderSetBasicInfo(enc.get(), &basicInfo)) {
         return false;
     }
 
     switch (colorspace) {
         case rgb:
-            basic_info.num_color_channels = 3;
+            basicInfo.num_color_channels = 3;
             break;
         case rgba:
-            basic_info.num_color_channels = 4;
+            basicInfo.num_color_channels = 4;
             JxlExtraChannelInfo channelInfo;
             JxlEncoderInitExtraChannelInfo(JXL_CHANNEL_ALPHA, &channelInfo);
             channelInfo.bits_per_sample = 8;
@@ -296,7 +294,7 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
     }
 
     JxlEncoderFrameSettings *frameSettings =
-            JxlEncoderFrameSettingsCreate(enc.get(), nullptr);
+    JxlEncoderFrameSettingsCreate(enc.get(), nullptr);
 
     JxlBitDepth depth;
     depth.bits_per_sample = 8;
@@ -306,18 +304,18 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
         return false;
     }
 
-    if (JXL_ENC_SUCCESS != JxlEncoderSetFrameLossless(frameSettings, compression_option == loseless)) {
+    if (JXL_ENC_SUCCESS != JxlEncoderSetFrameLossless(frameSettings, compressionOption == loseless)) {
         return false;
     }
 
     if (JXL_ENC_SUCCESS !=
-               JxlEncoderSetFrameDistance(frameSettings, compressionDistance)) {
+        JxlEncoderSetFrameDistance(frameSettings, compressionDistance)) {
         return false;
     }
 
     if (colorspace == rgba) {
         if (JXL_ENC_SUCCESS !=
-                   JxlEncoderSetExtraChannelDistance(frameSettings, 0, compressionDistance)) {
+            JxlEncoderSetExtraChannelDistance(frameSettings, 0, compressionDistance)) {
             return false;
         }
     }

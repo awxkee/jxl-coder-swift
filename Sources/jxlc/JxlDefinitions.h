@@ -1,8 +1,8 @@
 //
-//  JxlInternalCoder.h
+//  JxlDefinitions.h
 //  JxclCoder [https://github.com/awxkee/jxl-coder-swift]
 //
-//  Created by Radzivon Bartoshyk on 27/08/2023.
+//  Created by Radzivon Bartoshyk on 26/10/2023.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,26 +23,39 @@
 //  THE SOFTWARE.
 //
 
-#ifndef JXLCoder_h
-#define JXLCoder_h
+#ifndef JXL_DEFINITIONS_H
+#define JXL_DEFINITIONS_H
 
-#import <Foundation/Foundation.h>
-#import "JXLSystemImage.hpp"
-#import "JpegXLAnimatedEncoder.h"
-#import "JpegXLAnimatedDecoder.h"
+enum JxlPixelType {
+    rgb = 1,
+    rgba = 2
+};
 
-@interface JxlInternalCoder: NSObject
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
-                             rescale:(CGSize)rescale
-                             pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
-                             sampler:(JxlSampler)sampler
-                             error:(NSError *_Nullable * _Nullable)error;
-- (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
-- (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                     colorSpace:(JXLColorSpace)colorSpace
-                     compressionOption:(JXLCompressionOption)compressionOption
-                     effort:(int)effort
-                     quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
-@end
+enum JxlCompressionOption {
+    loseless = 1,
+    loosy = 2
+};
 
-#endif /* JXLCoder_h */
+enum JxlDecodingPixelFormat {
+    optimal = 1,
+    r8 = 2,
+    float16 = 3
+};
+
+enum JxlEncodingPixelFormat {
+    er8 = 1,
+    efloat16 = 2
+};
+
+enum JxlExposedOrientation {
+    Identity = 1,
+    FlipHorizontal = 2,
+    Rotate180 = 3,
+    FlipVertical = 4,
+    OrientTranspose = 5,
+    Rotate90CW = 6,
+    AntiTranspose = 7,
+    Rotate90CCW = 8
+};
+
+#endif /* JXL_DEFINITIONS_H */

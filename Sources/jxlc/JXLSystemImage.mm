@@ -68,7 +68,7 @@
     *bufferSize = (size_t)(stride * height);
     *xSize = (int)width;
     *ySize = (int)height;
-    
+
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGBitmapInfo bitmapInfo = (int)kCGImageAlphaPremultipliedLast | (int)kCGBitmapByteOrder32Big;
 
@@ -93,6 +93,40 @@
     }
 
     return targetMemory;
+}
+
+- (bool)jxlRGBAVPixels:(std::vector<uint8_t>&)buf width:(nonnull int*)xSize height:(nonnull int*)ySize {
+    CGImageRef imageRef = [self makeCGImage];
+    NSUInteger width = CGImageGetWidth(imageRef);
+    NSUInteger height = CGImageGetHeight(imageRef);
+    int stride = (int)4 * (int)width * sizeof(uint8_t);
+    buf.resize(stride * height);
+    *xSize = (int)width;
+    *ySize = (int)height;
+    
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGBitmapInfo bitmapInfo = (int)kCGImageAlphaPremultipliedLast | (int)kCGBitmapByteOrder32Big;
+
+    CGContextRef targetContext = CGBitmapContextCreate(buf.data(), width, height, 8, stride, colorSpace, bitmapInfo);
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext: [NSGraphicsContext graphicsContextWithCGContext:targetContext flipped:FALSE]];
+    CGColorSpaceRelease(colorSpace);
+
+    [self drawInRect: NSMakeRect(0, 0, width, height)
+            fromRect: NSZeroRect
+           operation: NSCompositingOperationCopy
+            fraction: 1.0];
+
+    [NSGraphicsContext restoreGraphicsState];
+
+    CGContextRelease(targetContext);
+
+    if (![self unpremultiply:buf.data() width:width height:height]) {
+        return false;
+    }
+
+    return true;
 }
 #else
 - (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize {

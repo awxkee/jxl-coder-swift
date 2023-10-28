@@ -32,32 +32,7 @@
 #endif
 #ifdef __cplusplus
 
-enum JxlPixelType {
-    rgb = 1,
-    rgba = 2
-};
-
-enum JxlCompressionOption {
-    loseless = 1,
-    loosy = 2
-};
-
-enum JxlDecodingPixelFormat {
-    optimal = 1,
-    r8 = 2,
-    float16 = 3
-};
-
-enum JxlExposedOrientation {
-    Identity = 1,
-    FlipHorizontal = 2,
-    Rotate180 = 3,
-    FlipVertical = 4,
-    OrientTranspose = 5,
-    Rotate90CW = 6,
-    AntiTranspose = 7,
-    Rotate90CCW = 8
-};
+#include "JxlDefinitions.h"
 
 bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                          std::vector<uint8_t> *pixels, size_t *xsize,

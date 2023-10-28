@@ -39,6 +39,34 @@
 #define JXLSystemImage   UIImage
 #endif
 
+typedef NS_ENUM(NSInteger, JXLColorSpace)  {
+    kRGB NS_SWIFT_NAME(rgb),
+    kRGBA NS_SWIFT_NAME(rgba)
+};
+
+typedef NS_ENUM(NSInteger, JXLCompressionOption) {
+    kLoseless NS_SWIFT_NAME(loseless),
+    kLossy NS_SWIFT_NAME(lossy)
+};
+
+typedef NS_ENUM(NSInteger, JXLPreferredPixelFormat) {
+    kOptimal NS_SWIFT_NAME(optimal),
+    kR8 NS_SWIFT_NAME(r8),
+    kFloat16 NS_SWIFT_NAME(float16),
+};
+
+typedef NS_ENUM(NSInteger, JxlSampler)  {
+    kNearestNeighbor NS_SWIFT_NAME(nearestNeighbor),
+    kBilinear NS_SWIFT_NAME(bilinear),
+    kCubic NS_SWIFT_NAME(cubic),
+    kBSpline NS_SWIFT_NAME(bSpline),
+    kMitchell NS_SWIFT_NAME(mitchell),
+    kLanczos NS_SWIFT_NAME(lanczos),
+    kCatmullRom NS_SWIFT_NAME(catmullRom),
+    kHermite NS_SWIFT_NAME(hermite),
+    kHann NS_SWIFT_NAME(hann)
+};
+
 @interface JXLSystemImage (JXLColorData)
 - (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize;
 @end
