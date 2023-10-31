@@ -13,7 +13,7 @@ import JxlCoder
 
 public final class JxlNukePlugin: Nuke.ImageDecoding {
     public func decode(_ data: Data) throws -> Nuke.ImageContainer {
-        guard try JXLCoder.isJXL(data: data) else { throw JXLNukePluginDecodeError() }
+        guard JXLCoder.isJXL(data: data) else { throw JXLNukePluginDecodeError() }
         let image = try JXLCoder.decode(data: data)
         return ImageContainer(image: image)
     }
@@ -46,7 +46,7 @@ extension JxlNukePlugin {
     }
 
     public static func enable(context: Nuke.ImageDecodingContext) -> Nuke.ImageDecoding? {
-        return try? JXLCoder.isJXL(data: context.data) ? JxlNukePlugin() : nil
+        return JXLCoder.isJXL(data: context.data) ? JxlNukePlugin() : nil
     }
 
 }

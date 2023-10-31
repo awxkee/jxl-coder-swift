@@ -243,13 +243,13 @@ bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
         return false;
     }
 
-    JxlPixelFormat pixel_format = {3, JXL_TYPE_UINT8, JXL_BIG_ENDIAN, 0};
+    JxlPixelFormat pixel_format = {3, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
     switch (colorspace) {
         case rgb:
-            pixel_format = {3, JXL_TYPE_UINT8, JXL_BIG_ENDIAN, 0};
+            pixel_format = {3, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
             break;
         case rgba:
-            pixel_format = {4, JXL_TYPE_UINT8, JXL_BIG_ENDIAN, 0};
+            pixel_format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
             break;
     }
 
