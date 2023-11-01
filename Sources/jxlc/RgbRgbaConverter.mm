@@ -49,7 +49,7 @@
         .rowBytes = static_cast<vImagePixelCount>(width * 3)
     };
     Pixel_8888 fillColor = {0x00, 0x00, 0x00, 0xFF};
-    vImage_Error vEerror = vImageFlatten_RGBA8888ToRGB888(&src, &dest, fillColor, true, kvImageNoFlags);
+    vImage_Error vEerror = vImageFlatten_RGBA8888ToRGB888(&src, &dest, fillColor, false, kvImageNoFlags);
     if (vEerror != kvImageNoError) {
         dstVector.resize(1);
         return dstVector;
