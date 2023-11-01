@@ -48,8 +48,8 @@
         .height = static_cast<vImagePixelCount>(height),
         .rowBytes = static_cast<vImagePixelCount>(width * 3)
     };
-    uint8_t fillColor = 0x0000000;
-    vImage_Error vEerror = vImageFlatten_RGBA8888ToRGB888(&src, &dest, &fillColor, false, kvImageNoFlags);
+    Pixel_8888 fillColor = {0x00, 0x00, 0x00, 0xFF};
+    vImage_Error vEerror = vImageFlatten_RGBA8888ToRGB888(&src, &dest, fillColor, true, kvImageNoFlags);
     if (vEerror != kvImageNoError) {
         dstVector.resize(1);
         return dstVector;
@@ -58,7 +58,7 @@
 }
 
 +(bool)convertRGBU16ToRGBAU16:(uint16_t*)src dst:(uint16_t*)dst width:(int)width height:(int)height depth:(int)depth {
-    uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)depth) - 1);
+    Pixel_16U whiteColor = (uint16_t)(powf(2.0f, (float)depth) - 1);
     vImage_Buffer srcBuffer = {
         .data = (void*)src,
         .width = static_cast<vImagePixelCount>(width),
@@ -80,7 +80,7 @@
 }
 
 +(bool)convertRGBU8ToRGBAU8:(uint8_t*)src dst:(uint8_t*)dst width:(int)width height:(int)height; {
-    uint16_t whiteColor = (uint16_t)(powf(2.0f, (float)8) - 1);
+    Pixel_16U whiteColor = (uint16_t)(powf(2.0f, (float)8) - 1);
     vImage_Buffer srcBuffer = {
         .data = (void*)src,
         .width = static_cast<vImagePixelCount>(width),

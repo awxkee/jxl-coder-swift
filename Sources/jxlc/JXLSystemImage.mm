@@ -50,7 +50,6 @@
     return true;
 }
 
-
 #if TARGET_OS_OSX
 
 -(nullable CGImageRef)makeCGImage {
