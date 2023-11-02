@@ -32,10 +32,11 @@
 #import "CJpegXLAnimatedDecoder.h"
 
 @interface JxlInternalCoder: NSObject
-- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream 
+- (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
                              rescale:(CGSize)rescale
                              pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
                              sampler:(JxlSampler)sampler
+                             scale:(int)scale
                              error:(NSError *_Nullable * _Nullable)error;
 - (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage

@@ -194,6 +194,7 @@ static inline float JXLGetDistance(const int quality)
                              rescale:(CGSize)rescale
                              pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
                              sampler:(JxlSampler)sampler
+                             scale:(int)scale
                              error:(NSError *_Nullable * _Nullable)error {
     try {
         int buffer_length = 30196;
@@ -384,7 +385,7 @@ static inline float JXLGetDistance(const int quality)
     #if JXL_PLUGIN_MAC
         image = [[NSImage alloc] initWithCGImage:imageRef size:CGSizeZero];
     #else
-        image = [UIImage imageWithCGImage:imageRef scale:1 orientation:UIImageOrientationUp];
+        image = [UIImage imageWithCGImage:imageRef scale:scale orientation:UIImageOrientationUp];
     #endif
 
         return image;
