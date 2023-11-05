@@ -50,6 +50,7 @@ public class JXLCoder {
     }
 
     /***
+     - Parameter scale: scale of UIImage
      - Parameter rescale: image will be rescaled to provided size
      - Returns: Decoded JXL image if this is the valid one
      **/
@@ -62,6 +63,7 @@ public class JXLCoder {
     }
 
     /***
+     - Parameter scale: scale of UIImage
      - Parameter sampleSize: if image size larger than sampler then it will be resized to sample
      - Returns: Decoded JXL image if this is the valid one
      **/
@@ -78,6 +80,7 @@ public class JXLCoder {
     }
 
     /***
+     - Parameter scale: scale of UIImage
      - Parameter rescale: image will be rescaled to provided size
      - Returns: Decoded JXL image if this is the valid one
      **/
