@@ -50,7 +50,9 @@ public:
             colorSpace:(JXLColorSpace)colorSpace
      compressionOption:(JXLCompressionOption)compressionOption
                 effort:(int)effort
-               quality:(int)quality error:(NSError * _Nullable *_Nullable)error {
+               quality:(int)quality 
+         decodingSpeed:(JXLEncoderDecodingSpeed)decodingSpeed
+                 error:(NSError * _Nullable *_Nullable)error {
     JxlPixelType jColorspace;
     JxlCompressionOption jCompressionOption;
 
@@ -73,7 +75,7 @@ public:
     }
 
     try {
-        enc = new JxlAnimatedEncoder(width, height, jColorspace, er8, jCompressionOption, numLoops, quality, effort);
+        enc = new JxlAnimatedEncoder(width, height, jColorspace, er8, jCompressionOption, numLoops, quality, effort, (int)decodingSpeed);
     } catch (AnimatedEncoderError& err) {
         NSString *str = [[NSString alloc] initWithCString:err.what() encoding:NSUTF8StringEncoding];
         *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: str }];

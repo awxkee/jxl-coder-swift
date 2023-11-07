@@ -43,7 +43,9 @@
                      colorSpace:(JXLColorSpace)colorSpace
                      compressionOption:(JXLCompressionOption)compressionOption
                      effort:(int)effort
-                     quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
+                     quality:(int)quality
+                     decodingSpeed:(JXLEncoderDecodingSpeed)decodingSpeed
+                     error:(NSError * _Nullable *_Nullable)error;
 @end
 
 #endif /* JXLCoder_h */

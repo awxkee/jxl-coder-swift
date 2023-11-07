@@ -46,8 +46,11 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
 bool DecodeBasicInfo(const uint8_t *jxl, size_t size, size_t *xsize, size_t *ysize);
 bool EncodeJxlOneshot(const std::vector<uint8_t> &pixels, const uint32_t xsize,
                       const uint32_t ysize, std::vector<uint8_t> *compressed,
-                      JxlPixelType colorspace, JxlCompressionOption compression_option,
-                      float compression_distance, int effort);
+                      JxlPixelType colorspace,
+                      JxlCompressionOption compressionOption,
+                      float compressionDistance,
+                      int effort,
+                      int decodingSpeed);
 
 bool isJXL(std::vector<uint8_t>& src);
 

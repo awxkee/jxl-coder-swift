@@ -47,19 +47,21 @@ static inline float JXLGetDistance(const int quality)
     if (quality == 0)
         return(1.0f);
     float distance = quality >= 100 ? 0.0
-                       : quality >= 30
-                           ? 0.1 + (100 - quality) * 0.09
-                           : 53.0 / 3000.0 * quality * quality -
-                                 23.0 / 20.0 * quality + 25.0;
+    : quality >= 30
+    ? 0.1 + (100 - quality) * 0.09
+    : 53.0 / 3000.0 * quality * quality -
+    23.0 / 20.0 * quality + 25.0;
     return distance;
 }
 
 @implementation JxlInternalCoder
 - (nullable NSData *)encode:(nonnull JXLSystemImage *)platformImage
-                    colorSpace:(JXLColorSpace)colorSpace
-                    compressionOption:(JXLCompressionOption)compressionOption
-                    effort:(int)effort
-                    quality:(int)quality error:(NSError * _Nullable *_Nullable)error {
+                 colorSpace:(JXLColorSpace)colorSpace
+          compressionOption:(JXLCompressionOption)compressionOption
+                     effort:(int)effort
+                    quality:(int)quality
+              decodingSpeed:(JXLEncoderDecodingSpeed)decodingSpeed
+                      error:(NSError * _Nullable *_Nullable)error {
     try {
         if (quality < 0 || quality > 100) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Quality must be clamped in 0...100" }];
@@ -117,7 +119,9 @@ static inline float JXLGetDistance(const int quality)
         }
 
         JXLDataWrapper<uint8_t>* wrapper = new JXLDataWrapper<uint8_t>();
-        auto encoded = EncodeJxlOneshot(pixels, width, height, &wrapper->data, jColorspace, jCompressionOption, JXLGetDistance(quality), effort);
+        auto encoded = EncodeJxlOneshot(pixels, width, height, &wrapper->data, 
+                                        jColorspace, jCompressionOption, JXLGetDistance(quality),
+                                        effort, (int)decodingSpeed);
         if (!encoded) {
             delete wrapper;
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot encode JXL image" }];
@@ -135,8 +139,8 @@ static inline float JXLGetDistance(const int quality)
         return data;
     } catch (std::bad_alloc &err) {
         *error = [[NSError alloc] initWithDomain:@"JXLCoder"
-                                  code:500
-                                  userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Encoding image memory error: %s", err.what()] }];
+                                            code:500
+                                        userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Encoding image memory error: %s", err.what()] }];
         return nullptr;
     }
 }
@@ -191,11 +195,11 @@ static inline float JXLGetDistance(const int quality)
 }
 
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
-                             rescale:(CGSize)rescale
-                             pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
-                             sampler:(JxlSampler)sampler
-                             scale:(int)scale
-                             error:(NSError *_Nullable * _Nullable)error {
+                            rescale:(CGSize)rescale
+                        pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
+                            sampler:(JxlSampler)sampler
+                              scale:(int)scale
+                              error:(NSError *_Nullable * _Nullable)error {
     try {
         int buffer_length = 30196;
         std::vector<uint8_t> buffer;
@@ -311,8 +315,8 @@ static inline float JXLGetDistance(const int quality)
             }
 
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
-                                           newWidth:(int)rescale.width newHeight:(int)rescale.height
-                                           components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
+                                            newWidth:(int)rescale.width newHeight:(int)rescale.height
+                                          components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
             if (!scaleResult) {
                 *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
                 return nil;
@@ -382,17 +386,17 @@ static inline float JXLGetDistance(const int quality)
             return NULL;
         }
         JXLSystemImage *image = nil;
-    #if JXL_PLUGIN_MAC
+#if JXL_PLUGIN_MAC
         image = [[NSImage alloc] initWithCGImage:imageRef size:CGSizeZero];
-    #else
+#else
         image = [UIImage imageWithCGImage:imageRef scale:scale orientation:UIImageOrientationUp];
-    #endif
+#endif
 
         return image;
     } catch (std::bad_alloc &err) {
-        *error = [[NSError alloc] initWithDomain:@"JXLCoder" 
-                                  code:500
-                                  userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Decoding image memory error: %s", err.what()] }];
+        *error = [[NSError alloc] initWithDomain:@"JXLCoder"
+                                            code:500
+                                        userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Decoding image memory error: %s", err.what()] }];
         return nullptr;
     }
 }

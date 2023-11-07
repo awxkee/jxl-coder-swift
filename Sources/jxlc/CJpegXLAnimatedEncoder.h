@@ -31,9 +31,11 @@
 
 @interface CJpegXLAnimatedEncoder : NSObject
 -(nullable id)initWith:(int)width height:(int)height numLoops:(int)numLoops colorSpace:(JXLColorSpace)colorSpace
-    compressionOption:(JXLCompressionOption)compressionOption
-    effort:(int)effort
-    quality:(int)quality error:(NSError * _Nullable *_Nullable)error;
+     compressionOption:(JXLCompressionOption)compressionOption
+                effort:(int)effort
+               quality:(int)quality
+         decodingSpeed:(JXLEncoderDecodingSpeed)decodingSpeed
+                 error:(NSError * _Nullable *_Nullable)error;
 -(nullable void*)addFrame:(nonnull JXLSystemImage *)platformImage duration:(int)duration error:(NSError * _Nullable *_Nullable)error;
 -(nullable NSData*)finish:(NSError * _Nullable *_Nullable)error;
 @end

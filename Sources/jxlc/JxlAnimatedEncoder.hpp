@@ -54,7 +54,7 @@ public:
     JxlAnimatedEncoder(int width, int height, JxlPixelType pixelType, 
                        JxlEncodingPixelFormat encodingPixelFormat, 
                        JxlCompressionOption compressionOption, 
-                       int numLoops, int quality, int effort): width(width), height(height),
+                       int numLoops, int quality, int effort, int decodingSpeed): width(width), height(height),
     pixelType(pixelType), encodingPixelFormat(encodingPixelFormat),
     compressionOption(compressionOption), quality(quality), effort(effort) {
         if (!enc || !runner) {
@@ -163,6 +163,12 @@ public:
         if (JXL_ENC_SUCCESS !=
                    JxlEncoderSetFrameDistance(frameSettings, JXLGetDistance(quality))) {
             std::string str = "Set frame distance has failed";
+            throw AnimatedEncoderError(str);
+        }
+
+        if (JXL_ENC_SUCCESS !=
+                   JxlEncoderFrameSettingsSetOption(frameSettings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, decodingSpeed)) {
+            std::string str = "Set decoding speed has failed";
             throw AnimatedEncoderError(str);
         }
 

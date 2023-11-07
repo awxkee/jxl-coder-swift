@@ -29,23 +29,24 @@ import jxlc
 #endif
 
 public class JXLAnimatedEncoder {
-
+    
     private let enc: CJpegXLAnimatedEncoder
-
+    
     public init(width: Int, height: Int,
                 numLoops: Int = 0, // 0 - means infinity
                 colorSpace: JXLColorSpace = .rgba,
                 compressionOption: JXLCompressionOption = .lossy,
-                effort: Int = 4, quality: Int = 0) throws {
+                effort: Int = 4, quality: Int = 0, decodingSpeed: JXLEncoderDecodingSpeed = .slowest) throws {
         enc = try CJpegXLAnimatedEncoder(Int32(width),
                                          height: Int32(height),
                                          numLoops: Int32(numLoops),
                                          colorSpace: colorSpace,
                                          compressionOption: compressionOption,
                                          effort: Int32(effort),
-                                         quality: Int32(quality))
+                                         quality: Int32(quality),
+                                         decodingSpeed: decodingSpeed)
     }
-
+    
     /**
      - Parameter frame: all the frames must match provided width and height in constructor
      - Parameter duration: length of the frame in milliseconds
@@ -53,7 +54,7 @@ public class JXLAnimatedEncoder {
     public func add(frame: JXLPlatformImage, duration ms: Int) throws {
         try enc.addFrame(frame, duration: Int32(ms))
     }
-
+    
     public func finish() throws -> Data {
         try enc.finish()
     }

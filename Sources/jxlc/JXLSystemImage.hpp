@@ -67,6 +67,14 @@ typedef NS_ENUM(NSInteger, JxlSampler)  {
     kHann NS_SWIFT_NAME(hann)
 };
 
+typedef NS_ENUM(NSInteger, JXLEncoderDecodingSpeed)  {
+    kSlowest NS_SWIFT_NAME(slowest) = 0,
+    kSlow NS_SWIFT_NAME(slow) = 1,
+    kMedium NS_SWIFT_NAME(medium) = 2,
+    kFast NS_SWIFT_NAME(fast) = 3,
+    kFastest NS_SWIFT_NAME(fastest) = 4
+};
+
 @interface JXLSystemImage (JXLColorData)
 - (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize;
 @end
