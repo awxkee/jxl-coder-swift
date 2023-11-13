@@ -107,7 +107,7 @@
     NSUInteger bitsPerComponent = 8;
     CGContextRef context = CGBitmapContextCreate(rawData, width, height,
                                                  bitsPerComponent, bytesPerRow, colorSpace,
-                                                 (int)kCGImageAlphaPremultipliedLast | (int)kCGBitmapByteOrder32Big);
+                                                 (int)kCGImageAlphaPremultipliedLast | (int)kCGImageByteOrderDefault);
 
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef);
 
