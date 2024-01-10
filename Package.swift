@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "JxlCoder",
-    platforms: [.iOS(.v11), .macOS(.v11)],
+    platforms: [.iOS(.v13), .macOS(.v12)],
     products: [
         .library(
             name: "JxlCoder",
