@@ -129,7 +129,7 @@ static void scaleRowF16(int components, int dstStride, int inputHeight, int inpu
             for (int c = 0; c < components; ++c) {
                 float clr = sampler(srcX - (float)xi,
                                     (float)castU16(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                    (float)castU16(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                    (float)castU16(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
                                     (float)castU16(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
                                     (float)castU16(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
                 dst16[x*components + c] = half(clr).data_;
@@ -217,15 +217,11 @@ static void scaleRowF16(int components, int dstStride, int inputHeight, int inpu
                 vst1_f16(reinterpret_cast<float16_t*>(dst16 + x*components), m);
             } else {
                 auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                for (int c = 0; c < components; ++c) {
-                    dst16[x*components + c] = row[x1*components + c];
-                }
+                memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
             }
 #else
             auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-            for (int c = 0; c < components; ++c) {
-                dst16[x*components + c] = row[x1*components + c];
-            }
+            memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
 #endif
         }
     }
@@ -365,7 +361,7 @@ void scaleImageU16(uint16_t* input,
                 for (int c = 0; c < components; ++c) {
                     float weight = sampler(srcX - (float)xi,
                                            static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                           static_cast<float>(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
                                            static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
                                            static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
                     uint16_t clr = (uint16_t) clamp(weight, 0.0f, maxColors);
@@ -444,15 +440,11 @@ void scaleImageU16(uint16_t* input,
                     vst1_u16(reinterpret_cast<uint16_t*>(dst16 + x*components), m);
                 } else {
                     auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                    for (int c = 0; c < components; ++c) {
-                        dst16[x*components + c] = row[x1*components + c];
-                    }
+                    memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
                 }
 #else
                 auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                for (int c = 0; c < components; ++c) {
-                    dst16[x*components + c] = row[x1*components + c];
-                }
+                memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
 #endif
             }
 
@@ -492,7 +484,9 @@ static void SetRowU8(int components, int inputWidth, float *rgb, const uint8_t *
     }
 }
 
-static void scaleRowU8(int components, int dstStride, int inputHeight, int inputWidth, float maxColors, XSampler option, uint8_t *output, int outputWidth, const uint8_t *src8, int srcStride, bool useNEONIfAvailable, float xScale, size_t y, float yScale) {
+static void scaleRowU8(int components, int dstStride, int inputHeight, int inputWidth, float maxColors, 
+                       XSampler option, uint8_t *output, int outputWidth, const uint8_t *src8, int srcStride,
+                       bool useNEONIfAvailable, float xScale, size_t y, float yScale) {
     auto dst8 = reinterpret_cast<uint8_t*>(output + y * dstStride);
     auto dst = reinterpret_cast<uint8_t*>(dst8);
 
@@ -562,7 +556,7 @@ static void scaleRowU8(int components, int dstStride, int inputHeight, int input
             for (int c = 0; c < components; ++c) {
                 float weight = sampler(srcX - (float)xi,
                                        static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                       static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
+                                       static_cast<float>(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
                                        static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
                                        static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
                 uint8_t clr = (uint8_t) clamp(weight, 0.0f, maxColors);
@@ -657,9 +651,7 @@ static void scaleRowU8(int components, int dstStride, int inputHeight, int input
             if (components == 4) {
                 reinterpret_cast<uint32_t*>(dst + x*components)[0] = reinterpret_cast<const uint32_t*>(row + x1*components)[0];
             } else {
-                for (int c = 0; c < components; ++c) {
-                    dst[x*components + c] = row[x1*components + c];
-                }
+                memcpy(&dst[x*components], &row[x1*components], sizeof(uint8_t)*components);
             }
         }
     }
@@ -687,8 +679,8 @@ void scaleImageU8(uint8_t* input,
         useNEONIfAvailable = true;
     }
 
-    int threadCount = clamp(min(static_cast<int>(std::thread::hardware_concurrency()), outputHeight * outputWidth / (256*256)), 1, 12);
-    std::vector<std::thread> workers;
+    int threadCount = clamp(min(static_cast<int>(thread::hardware_concurrency()), outputHeight * outputWidth / (256*256)), 1, 12);
+    vector<thread> workers;
 
     int segmentHeight = outputHeight / threadCount;
 

@@ -31,10 +31,12 @@
 
 #import "XScaler.hpp"
 
+using namespace std;
+
 @implementation RgbaScaler
 
-static bool scaleF16iOS16(std::vector<uint8_t> &src, int components, int width, int height, int newWidth, int newHeight, XSampler sampler) {
-    std::vector<uint8_t> dst(components * sizeof(uint16_t) * newWidth * newHeight);
+static bool scaleF16iOS16(vector<uint8_t> &src, int components, int width, int height, int newWidth, int newHeight, XSampler sampler) {
+    vector<uint8_t> dst(components * sizeof(uint16_t) * newWidth * newHeight);
 
     scaleImageFloat16(reinterpret_cast<uint16_t*>(src.data()),
                       components * sizeof(uint16_t) * width, width, height, reinterpret_cast<uint16_t*>(dst.data()),
@@ -44,8 +46,8 @@ static bool scaleF16iOS16(std::vector<uint8_t> &src, int components, int width, 
     return true;
 }
 
-+ (bool)scaleRGB8:(std::vector<uint8_t> &)src components:(int)components width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight sampler:(XSampler)sampler {
-    std::vector<uint8_t> dst(components * sizeof(uint8_t) * newWidth * newHeight);
++ (bool)scaleRGB8:(vector<uint8_t> &)src components:(int)components width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight sampler:(XSampler)sampler {
+    vector<uint8_t> dst(components * sizeof(uint8_t) * newWidth * newHeight);
 
     scaleImageU8(reinterpret_cast<uint8_t*>(src.data()),
                  components * sizeof(uint8_t) * width, width, height, reinterpret_cast<uint8_t*>(dst.data()),
@@ -55,7 +57,7 @@ static bool scaleF16iOS16(std::vector<uint8_t> &src, int components, int width, 
     return true;
 }
 
-+(bool) scaleData:(std::vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat sampler:(XSampler)sampler {
++(bool) scaleData:(vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat sampler:(XSampler)sampler {
 
     if (newWidth < 0 || newHeight < 0) {
         return false;

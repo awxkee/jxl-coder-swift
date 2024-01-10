@@ -41,7 +41,7 @@ pod install
 ```swift
 import JxlCoder
 // Decompress data
-let uiImage: UIImage? = JXLCoder.decode(data: Data()) // or any max CGSize of image
+let uiImage: UIImage = try JXLCoder.decode(data: Data()) // or any max CGSize of image
 // Compress
 let data: Data = try JXLCoder.encode(data: UIImage())
 ```

@@ -147,18 +147,18 @@ static inline float JXLGetDistance(const int quality)
 
 - (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error {
     try {
-        int buffer_length = 30196;
+        int bufferLength = 30196;
         std::vector<uint8_t> buffer;
-        buffer.resize(buffer_length);
+        buffer.resize(bufferLength);
         std::vector<uint8_t> imageData;
         [inputStream open];
         if ([inputStream streamStatus] == NSStreamStatusOpen) {
 
             while ([inputStream hasBytesAvailable]) {
-                NSInteger bytes_read = [inputStream read:buffer.data() maxLength:buffer_length];
-                if (bytes_read > 0) {
-                    imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytes_read);
-                } else if (bytes_read < 0) {
+                NSInteger bytesRead = [inputStream read:buffer.data() maxLength:bufferLength];
+                if (bytesRead > 0) {
+                    imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytesRead);
+                } else if (bytesRead < 0) {
                     auto streamError = [inputStream streamError];
                     if (streamError) {
                         *error = [inputStream streamError];
@@ -201,18 +201,18 @@ static inline float JXLGetDistance(const int quality)
                               scale:(int)scale
                               error:(NSError *_Nullable * _Nullable)error {
     try {
-        int buffer_length = 30196;
+        int bufferLength = 30196;
         std::vector<uint8_t> buffer;
-        buffer.resize(buffer_length);
+        buffer.resize(bufferLength);
         std::vector<uint8_t> imageData;
         [inputStream open];
         if ([inputStream streamStatus] == NSStreamStatusOpen) {
 
             while ([inputStream hasBytesAvailable]) {
-                NSInteger bytes_read = [inputStream read:buffer.data() maxLength:buffer_length];
-                if (bytes_read > 0) {
-                    imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytes_read);
-                } else if (bytes_read < 0) {
+                NSInteger bytesRead = [inputStream read:buffer.data() maxLength:bufferLength];
+                if (bytesRead > 0) {
+                    imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytesRead);
+                } else if (bytesRead < 0) {
                     auto streamError = [inputStream streamError];
                     if (streamError) {
                         *error = [inputStream streamError];
@@ -267,7 +267,9 @@ static inline float JXLGetDistance(const int quality)
                                            &useFloats, &jxlExposedOrientation,
                                            pixelFormat);
         if (!decoded) {
-            *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
+            *error = [[NSError alloc] initWithDomain:@"JXLCoder" 
+                                                code:500
+                                            userInfo:@{ NSLocalizedDescriptionKey: @"Failed to decode JXL image" }];
             return nil;
         }
 
@@ -318,7 +320,9 @@ static inline float JXLGetDistance(const int quality)
                                             newWidth:(int)rescale.width newHeight:(int)rescale.height
                                           components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
             if (!scaleResult) {
-                *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
+                *error = [[NSError alloc] initWithDomain:@"JXLCoder" 
+                                                    code:500
+                                                userInfo:@{ NSLocalizedDescriptionKey: @"Rescale image has failed" }];
                 return nil;
             }
             xSize = rescale.width;
@@ -369,7 +373,7 @@ static inline float JXLGetDistance(const int quality)
             *error = [[NSError alloc] initWithDomain:@"JXLCoder"
                                                 code:500
                                             userInfo:@{ NSLocalizedDescriptionKey: @"CoreGraphics cannot allocate required provider" }];
-            return NULL;
+            return nullptr;
         }
 
         int bitsPerComponent = (useFloats ? sizeof(uint16_t) : sizeof(uint8_t)) * 8;
@@ -383,7 +387,7 @@ static inline float JXLGetDistance(const int quality)
             *error = [[NSError alloc] initWithDomain:@"JXLCoder"
                                                 code:500
                                             userInfo:@{ NSLocalizedDescriptionKey: @"CoreGraphics cannot allocate CGImageRef" }];
-            return NULL;
+            return nullptr;
         }
         JXLSystemImage *image = nil;
 #if JXL_PLUGIN_MAC

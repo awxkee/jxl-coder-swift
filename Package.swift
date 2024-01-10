@@ -17,7 +17,8 @@ let package = Package(
             dependencies: ["jxlc"],
             path: "Sources/JxlCoder"),
         .target(name: "jxlc",
-                dependencies: ["libbrotlicommon", "libbrotlidec", "libbrotlienc", "libhwy", "libjxl_threads", "libjxl"],
+                dependencies: ["libbrotlicommon", "libbrotlidec", "libbrotlienc", "libhwy",
+                               "libjxl_threads", "libjxl", "libjxl_cms", "libskcms"],
                 publicHeadersPath: "include",
                 linkerSettings: [
                     .linkedFramework("Accelerate")
@@ -27,7 +28,9 @@ let package = Package(
         .binaryTarget(name: "libbrotlienc", path: "Sources/Frameworks/libbrotlienc.xcframework"),
         .binaryTarget(name: "libhwy", path: "Sources/Frameworks/libhwy.xcframework"),
         .binaryTarget(name: "libjxl_threads", path: "Sources/Frameworks/libjxl_threads.xcframework"),
-        .binaryTarget(name: "libjxl", path: "Sources/Frameworks/libjxl.xcframework")
+        .binaryTarget(name: "libjxl", path: "Sources/Frameworks/libjxl.xcframework"),
+        .binaryTarget(name: "libjxl_cms", path: "Sources/Frameworks/libjxl_cms.xcframework"),
+        .binaryTarget(name: "libskcms", path: "Sources/Frameworks/libskcms.xcframework")
     ],
     cxxLanguageStandard: .cxx20
 )

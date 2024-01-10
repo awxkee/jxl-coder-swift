@@ -49,7 +49,7 @@ JxlFrame JxlAnimatedDecoder::getFrame(int framePosition) {
     JxlDecoderCloseInput(dec.get());
     JxlDecoderSkipFrames(dec.get(), framePosition);
     
-    if (JXL_DEC_SUCCESS != JxlDecoderSetCoalescing(dec.get(), JXL_FALSE)) {
+    if (JXL_DEC_SUCCESS != JxlDecoderSetCoalescing(dec.get(), JXL_TRUE)) {
         std::string str = "Cannot coalesce frames";
         throw AnimatedDecoderError(str);
     }
