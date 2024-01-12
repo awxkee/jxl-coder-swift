@@ -18,10 +18,11 @@ Pod::Spec.new do |s|
     s.project_header_files = 'Sources/jxlc/JxlWorker.hpp'
     s.pod_target_xcconfig = {
         'OTHER_CXXFLAGS' => '$(inherited) -std=c++20 -ffast-math',
-        'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers"',
+        'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers" "$(PODS_TARGET_SRCROOT)/Sources/Frameworks/libhwy.xcframework/ios-arm64/Headers"',
         'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -fmodules -fcxx-modules -std=c++20 -ffast-math'
     }
-    s.preserve_paths = "Sources/Frameworks/*.xcframework", "Sources/Frameworks/*.xcframework/**/Headers", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jxl", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jpegli"
+    s.preserve_paths = "Sources/Frameworks/*.xcframework", "Sources/Frameworks/*.xcframework/**/Headers", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jxl", "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/jpegli",
+        "Sources/Frameworks/libjxl.xcframework/ios-arm64/Headers/libhwy"
     s.libraries = 'c++'
     s.requires_arc = true
 end
