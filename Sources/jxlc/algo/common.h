@@ -6,13 +6,7 @@
 #ifndef LIB_JXL_BASE_COMMON_H_
 #define LIB_JXL_BASE_COMMON_H_
 
-// Shared constants and helper functions.
-
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
 #include <memory>
-#include <string>
 
 namespace coder {
 // Some enums and typedefs used by more than one header file.
@@ -56,36 +50,9 @@ namespace coder {
         return static_cast<T>(multiplier * kPi);
     }
 
-// Prior to C++14 (i.e. C++11): provide our own make_unique
-#if __cplusplus < 201402L
-    template <typename T, typename... Args>
-    std::unique_ptr<T> make_unique(Args&&... args) {
-      return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-    }
-#else
-    using std::make_unique;
-#endif
-
     template<typename T>
     inline T Clamp1(T val, T low, T hi) {
         return val < low ? low : val > hi ? hi : val;
-    }
-
-// conversion from integer to string.
-    template<typename T>
-    std::string ToString(T n) {
-        char data[32] = {};
-        if (T(0.1) != T(0)) {
-            // float
-            snprintf(data, sizeof(data), "%g", static_cast<double>(n));
-        } else if (T(-1) > T(0)) {
-            // unsigned
-            snprintf(data, sizeof(data), "%llu", static_cast<unsigned long long>(n));
-        } else {
-            // signed
-            snprintf(data, sizeof(data), "%lld", static_cast<long long>(n));
-        }
-        return data;
     }
 
 }  // namespace jxl
