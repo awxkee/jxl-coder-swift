@@ -8,7 +8,7 @@
 #include "half.hpp"
 #include <thread>
 #include <vector>
-#include "algo/sampler.h"
+#include "sampler.h"
 
 #define HWY_COMPILE_ONLY_STATIC
 
@@ -21,8 +21,8 @@
 
 #include "hwy/foreach_target.h"
 #include "hwy/highway.h"
-#include "algo/sampler-inl.h"
-#include "algo/math-inl.h"
+#include "sampler-inl.h"
+#include "math-inl.h"
 
 using namespace half_float;
 using namespace std;

@@ -20,6 +20,8 @@ let package = Package(
                 dependencies: ["libbrotlicommon", "libbrotlidec", "libbrotlienc", "libhwy",
                                "libjxl_threads", "libjxl", "libjxl_cms", "libskcms"],
                 publicHeadersPath: "include",
+                cSettings: [.headerSearchPath("./algo")],
+                cxxSettings: [.headerSearchPath("./algo")],
                 linkerSettings: [
                     .linkedFramework("Accelerate")
                 ]),
