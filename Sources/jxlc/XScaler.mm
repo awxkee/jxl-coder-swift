@@ -4,702 +4,942 @@
 //
 //  Created by Radzivon Bartoshyk on 28/09/2023.
 //
-
 #include "XScaler.hpp"
-#import <Foundation/Foundation.h>
+#include "half.hpp"
+#include <thread>
+#include <vector>
+#include "algo/sampler.h"
 
-#import "half.hpp"
-#include <algorithm>
-#import "ScaleInterpolator.h"
+#define HWY_COMPILE_ONLY_STATIC
+
+#if defined(__clang__)
+#pragma clang fp contract(fast) exceptions(ignore) reassociate(on)
+#endif
+
+#undef HWY_TARGET_INCLUDE
+#define HWY_TARGET_INCLUDE "XScaler.mm"
+
+#include "hwy/foreach_target.h"
+#include "hwy/highway.h"
+#include "algo/sampler-inl.h"
+#include "algo/math-inl.h"
 
 using namespace half_float;
 using namespace std;
 
-#if __arm64__
-#include <arm_neon.h>
-#endif
+HWY_BEFORE_NAMESPACE();
 
-typedef float (*KernelSample4Func)(float, float, float, float, float);
-#if __arm64__
-typedef float32x4_t (*KernelSample4NEONFunc)(const float32x4_t, const float32x4_t, const float32x4_t,const float32x4_t,const float32x4_t);
-typedef float32x4_t (*KernelWindowNEONFunc)(const float32x4_t, const float);
-#endif
-typedef float (*KernelWindow2Func)(float, const float);
+namespace coder::HWY_NAMESPACE {
 
-inline half_float::half castU16(uint16_t t) {
-    half_float::half result;
-    result.data_ = t;
-    return result;
-}
+    using hwy::HWY_NAMESPACE::Set;
+    using hwy::HWY_NAMESPACE::FixedTag;
+    using hwy::HWY_NAMESPACE::Vec;
+    using hwy::HWY_NAMESPACE::Add;
+    using hwy::HWY_NAMESPACE::LoadU;
+    using hwy::HWY_NAMESPACE::BitCast;
+    using hwy::HWY_NAMESPACE::Min;
+    using hwy::HWY_NAMESPACE::ConvertTo;
+    using hwy::HWY_NAMESPACE::Floor;
+    using hwy::HWY_NAMESPACE::Mul;
+    using hwy::HWY_NAMESPACE::ExtractLane;
+    using hwy::HWY_NAMESPACE::Zero;
+    using hwy::HWY_NAMESPACE::StoreU;
+    using hwy::HWY_NAMESPACE::Round;
+    using hwy::HWY_NAMESPACE::LoadInterleaved4;
+    using hwy::HWY_NAMESPACE::Sub;
+    using hwy::HWY_NAMESPACE::Max;
+    using hwy::HWY_NAMESPACE::Abs;
+    using hwy::HWY_NAMESPACE::MulAdd;
+    using hwy::HWY_NAMESPACE::SumOfLanes;
+    using hwy::HWY_NAMESPACE::Div;
+    using hwy::HWY_NAMESPACE::NegMulAdd;
+    using hwy::HWY_NAMESPACE::IfThenElse;
+    using hwy::HWY_NAMESPACE::MulSub;
+    using hwy::HWY_NAMESPACE::Neg;
+    using hwy::float32_t;
+    using hwy::float16_t;
 
-inline static void SetRowF16(int components, int inputWidth, float *rgb, const uint16_t *row, bool useNEONIfAvailable, float weight, int xi) {
-#if __arm64__
-    if (useNEONIfAvailable) {
-        auto row16 = reinterpret_cast<const float16_t*>(&row[clamp(xi, 0, inputWidth - 1)*components]);
-        if (components == 3) {
-            float16x4_t vc = { row16[0], row16[1], row16[2], 0.0f };
-            float32x4_t x = vmulq_n_f32(vcvt_f32_f16(vc), weight);
-            rgb[0] += vgetq_lane_f32(x, 0);
-            rgb[1] += vgetq_lane_f32(x, 1);
-            rgb[2] += vgetq_lane_f32(x, 2);
-        } else if (components == 4) {
-            float16x4_t vc = vld1_f16(row16);
-            float32x4_t x = vmulq_n_f32(vcvt_f32_f16(vc), weight);
-            float32x4_t m = vld1q_f32(rgb);
-            vst1q_f32(rgb, vaddq_f32(m, x));
+    float SampleOptionResult(float value, const XSampler option) {
+        switch (option) {
+            case bilinear:
+                break;
+            case nearest:
+                break;
+            case cubic:
+                return CubicHermite(value);
+            case mitchell:
+                return MitchellNetravalli(value);
+            case lanczos:
+                return LanczosWindow(value, float(3));
+            case catmullRom:
+                return CatmullRom(value);
+            case hermite:
+                return CubicHermite(value);
+            case bSpline:
+                return BSpline(value);
+            case hann:
+                return HannWindow(value, float(3));
         }
+        return 0;
     }
-#endif
 
-    if (!useNEONIfAvailable) {
-        for (int c = 0; c < components; ++c) {
-            half clrf = castU16(row[clamp(xi, 0, inputWidth - 1)*components + c]);
-            float clr = (float)clrf * weight;
-            rgb[c] += clr;
+    template<class D, typename T = Vec<D>>
+    HWY_MATH_INLINE T SampleOptionResult(const D df, T x, const XSampler option) {
+        switch (option) {
+            case bilinear:
+                break;
+            case nearest:
+                break;
+            case cubic:
+                return SimpleCubicV(df, x);
+            case mitchell:
+                return MitchellNetravaliV(df, x);
+            case lanczos: {
+                const T a = Set(df, 3.0);
+                return LanczosWindowHWY(df, x, a);
+            }
+            case catmullRom:
+                return CatmullRomV(df, x);
+            case hermite:
+                return CubicHermiteV(df, x);
+            case bSpline:
+                return CubicBSplineV(df, x);
+            case hann: {
+                return HannWindow(df, x, 3.0);
+            }
         }
-    }
-}
-
-static void scaleRowF16(int components, int dstStride, int inputHeight, int inputWidth, XSampler option, uint16_t *output, int outputWidth, const uint8_t *src8, int srcStride, bool useNEONIfAvailable, float xScale, int y, float yScale) {
-    auto dst8 = reinterpret_cast<uint8_t*>(output) + y * dstStride;
-    auto dst16 = reinterpret_cast<uint16_t*>(dst8);
-
-    int x = 0;
-
-    for (; x < outputWidth; ++x) {
-        float srcX = x * xScale;
-        float srcY = y * yScale;
-
-        // Calculate the integer and fractional parts
-        int x1 = static_cast<int>(srcX);
-        int y1 = static_cast<int>(srcY);
-
-        if (option == bilinear) {
-            int x2 = min(x1 + 1, inputWidth - 1);
-            int y2 = min(y1 + 1, inputHeight - 1);
-
-            float dx((float)x2 - x1);
-            float dy((float)y2 - y1);
-
-            float invertDx = float(1.0f) - dx;
-            float invertDy = float(1.0f) - dy;
-
-            auto row1 = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-            auto row2 = reinterpret_cast<const uint16_t*>(src8 + y2 * srcStride);
-
-            for (int c = 0; c < components; ++c) {
-                float c1 = castU16(row1[x1*components + c]) * invertDx * invertDy;
-                float c2 = castU16(row1[x2*components + c]) * dx * invertDy;
-                float c3 = castU16(row2[x1*components + c]) * invertDx * dy;
-                float c4 = castU16(row2[x2*components + c]) * dx * dy;
-
-                float result = c1 + c2 + c3 + c4;
-                dst16[x*components + c] = half(result).data_;
-            }
-        } else if (option == cubic || option == mitchell || option == bSpline || option == catmullRom || option == hermite) {
-            KernelSample4Func sampler;
-            switch (option) {
-                case cubic:
-                    sampler = SimpleCubic<float>;
-                    break;
-                case mitchell:
-                    sampler = MitchellNetravali<float>;
-                    break;
-                case catmullRom:
-                    sampler = CatmullRom<float>;
-                    break;
-                case bSpline:
-                    sampler = CubicBSpline<float>;
-                    break;
-                case hermite:
-                    sampler = CubicHermite<float>;
-                    break;
-                default:
-                    sampler = CubicBSpline<float>;
-            }
-            float kx1 = floor(srcX);
-            float ky1 = floor(srcY);
-
-            int xi = kx1;
-            int yj = ky1;
-
-            auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-            auto rowy1 = reinterpret_cast<const uint16_t*>(src8 + clamp(yj + 1, 0, inputHeight - 1) * srcStride);
-
-            for (int c = 0; c < components; ++c) {
-                float clr = sampler(srcX - (float)xi,
-                                    (float)castU16(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                    (float)castU16(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                    (float)castU16(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
-                                    (float)castU16(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
-                dst16[x*components + c] = half(clr).data_;
-            }
-        } else if (option == lanczos || option == hann) {
-            KernelWindow2Func sampler;
-            switch (option) {
-                case hann:
-                    sampler = HannWindow<float>;
-                    break;
-                default:
-                    sampler = LanczosWindow<float>;
-            }
-            float rgb[components];
-            fill(rgb, rgb + components, 0.0f);
-
-            constexpr int a = 3;
-            constexpr float lanczosFA = float(3.0f);
-
-            float kx1 = floor(srcX);
-            float ky1 = floor(srcY);
-
-            float weightSum(0.0f);
-
-            for (int j = -a + 1; j <= a; j++) {
-                if (option == lanczos) {
-                    int yj = ky1 + j;
-                    float dy = float(srcY) - (float(ky1) + (float)j);
-                    float dyWeight = sampler(dy, lanczosFA);
-                    auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-
-                    for (int i = -a + 1; i <= a; i++) {
-                        int xi = kx1 + i;
-                        float dx = float(srcX) - (float(kx1) + (float)i);
-                        float weight = sampler(dx, lanczosFA) * dyWeight;
-                        weightSum += weight;
-
-                        SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
-                    }
-                } else {
-                    int yj = ky1 + j;
-                    float dyWeight = sampler(j, lanczosFA);
-                    auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-
-                    for (int i = -a + 1; i <= a; i++) {
-                        int xi = kx1 + i;
-                        float weight = sampler(i, lanczosFA) * dyWeight;
-                        weightSum += weight;
-
-                        SetRowF16(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
-                    }
-                }
-            }
-
-            bool useNeonAccumulator = components == 4 || components == 3;
-#if __arm64__
-            if (useNEONIfAvailable && useNeonAccumulator) {
-                if (components == 4) {
-                    float32x4_t xx = vld1q_f32(rgb);
-                    float16x4_t k = vcvt_f16_f32(vdivq_f32(xx, vdupq_n_f32(weightSum)));
-                    vst1_f16(reinterpret_cast<float16_t*>(dst16 + x*components), k);
-                } else {
-                    float32x4_t xx = { rgb[0], rgb[1], rgb[2], 0.0f };
-                    uint16x4_t k = vreinterpret_u16_f16(vcvt_f16_f32(vdivq_f32(xx, vdupq_n_f32(weightSum))));
-                    dst16[x*components] += vget_lane_u16(k, 0);
-                    dst16[x*components + 1] += vget_lane_u16(k, 1);
-                    dst16[x*components + 2] += vget_lane_u16(k, 2);
-                }
-            }
-#endif
-            if (!useNEONIfAvailable || !useNeonAccumulator) {
-                for (int c = 0; c < components; ++c) {
-                    if (weightSum == 0) {
-                        dst16[x*components + c] = half(rgb[c]).data_;
-                    } else {
-                        dst16[x*components + c] = half(rgb[c] / weightSum).data_;
-                    }
-                }
-            }
-        } else {
-#if __arm64__
-            if (components == 4) {
-                auto row = reinterpret_cast<const float16_t*>(src8 + y1 * srcStride);
-                float16x4_t m = vld1_f16(row + x1*components);
-                vst1_f16(reinterpret_cast<float16_t*>(dst16 + x*components), m);
-            } else {
-                auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
-            }
-#else
-            auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-            memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
-#endif
-        }
-    }
-}
-
-#include <thread>
-
-void scaleImageFloat16(uint16_t* input,
-                       int srcStride,
-                       int inputWidth, int inputHeight,
-                       uint16_t* output,
-                       int dstStride,
-                       int outputWidth, int outputHeight,
-                       int components,
-                       XSampler option) {
-    float xScale = static_cast<float>(inputWidth) / static_cast<float>(outputWidth);
-    float yScale = static_cast<float>(inputHeight) / static_cast<float>(outputHeight);
-
-    auto src8 = reinterpret_cast<const uint8_t*>(input);
-    auto dst8 = reinterpret_cast<uint8_t*>(output);
-
-    bool useNEONIfAvailable = false;
-    if (components == 3 || components == 4) {
-        useNEONIfAvailable = true;
+        return Zero(df);
     }
 
-    int threadCount = clamp(min(static_cast<int>(std::thread::hardware_concurrency()), outputHeight * outputWidth / (256*256)), 1, 12);
-    std::vector<std::thread> workers;
+    void
+    scaleRowF16(const uint8_t *src8,
+                const int srcStride,
+                const int dstStride, int inputWidth,
+                int inputHeight,
+                uint16_t *output,
+                int outputWidth,
+                const float xScale,
+                const XSampler &option,
+                const float yScale, int y, const int components) {
+        auto dst8 = reinterpret_cast<uint8_t *>(output) + y * dstStride;
+        auto dst16 = reinterpret_cast<uint16_t *>(dst8);
 
-    int segmentHeight = outputHeight / threadCount;
+        const FixedTag<float32_t, 4> dfx4;
+        const FixedTag<int32_t, 4> dix4;
+        const FixedTag<float16_t, 4> df16x4;
+        using VI4 = Vec<decltype(dix4)>;
+        using VF4 = Vec<decltype(dfx4)>;
+        using VF16x4 = Vec<decltype(df16x4)>;
 
-    for (int i = 0; i < threadCount; i++) {
-        int start = i * segmentHeight;
-        int end = (i + 1) * segmentHeight;
-        if (i == threadCount - 1) {
-            end = outputHeight;
-        }
-        workers.emplace_back([start, end, components, dstStride, inputHeight, inputWidth,
-                              option, output, outputWidth, src8, srcStride, useNEONIfAvailable,
-                              xScale, yScale]() {
-            for (int y = start; y < end; ++y) {
-                scaleRowF16(components, dstStride, inputHeight, inputWidth, option,
-                            output, outputWidth, src8, srcStride, useNEONIfAvailable, xScale, y, yScale);
-            }
-        });
-    }
-
-    for (std::thread& thread : workers) {
-        thread.join();
-    }
-}
-
-void scaleImageU16(uint16_t* input,
-                   int srcStride,
-                   int inputWidth, int inputHeight,
-                   uint16_t* output,
-                   int dstStride,
-                   int outputWidth, int outputHeight,
-                   int components,
-                   int depth,
-                   XSampler option) {
-    float xScale = static_cast<float>(inputWidth) / static_cast<float>(outputWidth);
-    float yScale = static_cast<float>(inputHeight) / static_cast<float>(outputHeight);
-
-    auto src8 = reinterpret_cast<const uint8_t*>(input);
-    auto dst8 = reinterpret_cast<uint8_t*>(output);
-
-    float maxColors = pow(2, depth) - 1;
-
-    for (int y = 0; y < outputHeight; ++y) {
-        auto dst8 = reinterpret_cast<uint8_t*>(output) + y * dstStride;
-        auto dst16 = reinterpret_cast<uint16_t*>(dst8);
+        const int shift[4] = {0, 1, 2, 3};
+        const VI4 shiftV = LoadU(dix4, shift);
+        const VF4 xScaleV = Set(dfx4, xScale);
+        const VF4 yScaleV = Set(dfx4, yScale);
+        const VI4 addOne = Set(dix4, 1);
+        const VF4 fOneV = Set(dfx4, 1.0f);
+        const VI4 maxWidth = Set(dix4, inputWidth - 1);
+        const VI4 maxHeight = Set(dix4, inputHeight - 1);
+        const VI4 iZeros = Zero(dix4);
+        const VF4 vfZeros = Zero(dfx4);
+        const VI4 srcStrideV = Set(dix4, srcStride);
+        const int mMaxWidth = inputWidth - 1;
+        const int mMaxHeight = inputHeight - 1;
 
         for (int x = 0; x < outputWidth; ++x) {
-            float srcX = x * xScale;
-            float srcY = y * yScale;
+            float srcX = (float) x * xScale;
+            float srcY = (float) y * yScale;
 
-            // Calculate the integer and fractional parts
             int x1 = static_cast<int>(srcX);
             int y1 = static_cast<int>(srcY);
 
-            auto dst16 = reinterpret_cast<uint16_t*>(dst8);
-
             if (option == bilinear) {
-                int x2 = min(x1 + 1, inputWidth - 1);
-                int y2 = min(y1 + 1, inputHeight - 1);
+                if (components == 4 && x + 8 < outputWidth) {
+                    VI4 currentX = Set(dix4, x);
+                    VI4 currentXV = Add(currentX, shiftV);
+                    VF4 currentXVF = Mul(ConvertTo(dfx4, currentXV), xScaleV);
+                    VF4 currentYVF = Mul(ConvertTo(dfx4, Set(dix4, y)), yScaleV);
 
-                float dx = (float)x2 - (float)x1;
-                float dy = (float)y2 - (float)y1;
+                    VI4 xi1 = ConvertTo(dix4, Floor(currentXVF));
+                    VI4 yi1 = Min(ConvertTo(dix4, Floor(currentYVF)), maxHeight);
 
-                float invertDx = float(1.0f) - dx;
-                float invertDy = float(1.0f) - dy;
+                    VI4 xi2 = Min(Add(xi1, addOne), maxWidth);
+                    VI4 yi2 = Min(Add(yi1, addOne), maxHeight);
 
-                auto row1 = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                auto row2 = reinterpret_cast<const uint16_t*>(src8 + y2 * srcStride);
+                    VI4 row1Add = Mul(yi1, srcStrideV);
+                    VI4 row2Add = Mul(yi2, srcStrideV);
 
-                for (int c = 0; c < components; ++c) {
-                    float c1 = static_cast<float>(row1[x1*components + c]) * invertDx * invertDy;
-                    float c2 = static_cast<float>(row1[x2*components + c]) * dx * invertDy;
-                    float c3 = static_cast<float>(row2[x1*components + c]) * invertDx * dy;
-                    float c4 = static_cast<float>(row2[x2*components + c]) * dx * dy;
+                    VF4 dx = Max(Sub(currentXVF, ConvertTo(dfx4, xi1)), vfZeros);
+                    VF4 dy = Max(Sub(currentYVF, ConvertTo(dfx4, yi1)), vfZeros);
 
-                    float result = (c1 + c2 + c3 + c4);
-                    float f = clamp(f, 0.0f, maxColors);
-                    dst16[x*components + c] = static_cast<uint16_t>(f);
+                    for (int i = 0; i < 4; i++) {
+                        auto row1 = reinterpret_cast<const float16_t *>(src8 +
+                                                                        ExtractLane(row1Add, i));
+                        auto row2 = reinterpret_cast<const float16_t *>(src8 +
+                                                                        ExtractLane(row2Add, i));
+                        VF16x4 lane = LoadU(df16x4, &row1[ExtractLane(xi1, i) * components]);
+                        VF4 c1 = PromoteTo(dfx4, lane);
+                        lane = LoadU(df16x4, &row1[ExtractLane(xi2, i) * components]);
+                        VF4 c2 = PromoteTo(dfx4, lane);
+                        lane = LoadU(df16x4, &row2[ExtractLane(xi1, i) * components]);
+                        VF4 c3 = PromoteTo(dfx4, lane);
+                        lane = LoadU(df16x4, &row2[ExtractLane(xi2, i) * components]);
+                        VF4 c4 = PromoteTo(dfx4, lane);
+                        VF4 value = Blerp(dfx4, c1, c2, c3, c4, Set(dfx4, ExtractLane(dx, i)),
+                                          Set(dfx4, ExtractLane(dy, i)));
+                        VF16x4 pixel = DemoteTo(df16x4, Max(value, vfZeros));
+                        auto u8Store = reinterpret_cast<float16_t *>(&dst16[
+                                ExtractLane(currentXV, i) * components]);
+                        StoreU(pixel, df16x4, u8Store);
+                    }
+
+                    x += components - 1;
+                } else {
+                    int x2 = min(x1 + 1, inputWidth - 1);
+                    int y2 = min(y1 + 1, inputHeight - 1);
+
+                    float dx((float) srcX - (float) x1);
+                    float dy((float) srcY - (float) y1);
+
+                    float invertDx = float(1.0f) - dx;
+                    float invertDy = float(1.0f) - dy;
+
+                    auto row1 = reinterpret_cast<const uint16_t *>(src8 + y1 * srcStride);
+                    auto row2 = reinterpret_cast<const uint16_t *>(src8 + y2 * srcStride);
+
+                    for (int c = 0; c < components; ++c) {
+                        float c1 = castU16(row1[x1 * components + c]);
+                        float c2 = castU16(row1[x2 * components + c]);
+                        float c3 = castU16(row2[x1 * components + c]);
+                        float c4 = castU16(row2[x2 * components + c]);
+                        float result = blerp(c1, c2, c3, c4, dx, dy);
+                        dst16[x * components + c] = half(result).data_;
+                    }
                 }
-            } else if (option == cubic || option == mitchell || option == bSpline || option == catmullRom || option == hermite) {
-                KernelSample4Func sampler;
-                switch (option) {
-                    case cubic:
-                        sampler = SimpleCubic<float>;
-                        break;
-                    case mitchell:
-                        sampler = MitchellNetravali<float>;
-                        break;
-                    case catmullRom:
-                        sampler = CatmullRom<float>;
-                        break;
-                    case bSpline:
-                        sampler = CubicBSpline<float>;
-                        break;
-                    case hermite:
-                        sampler = CubicHermite<float>;
-                        break;
-                    default:
-                        sampler = CubicBSpline<float>;
-                }
-                float kx1 = floor(srcX);
-                float ky1 = floor(srcY);
+            } else if (option == cubic || option == mitchell || option == bSpline ||
+                       option == catmullRom || option == hermite) {
+                if (components == 4 && x + 8 < outputWidth &&
+                    (option == hermite || option == mitchell || option == catmullRom ||
+                     option == bSpline || option == cubic)) {
+                    int a = 2;
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
 
-                int xi = kx1;
-                int yj = ky1;
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
 
-                auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-                auto rowy1 = reinterpret_cast<const uint16_t*>(src8 + clamp(yj + 1, 0, inputHeight - 1) * srcStride);
+                    VF4 color = Set(dfx4, 0);
 
-                for (int c = 0; c < components; ++c) {
-                    float weight = sampler(srcX - (float)xi,
-                                           static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                           static_cast<float>(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                           static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
-                                           static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
-                    uint16_t clr = (uint16_t) clamp(weight, 0.0f, maxColors);
-                    dst16[x*components + c] = clr;
+                    const int appendixLow[4] = {-1, 0, 1, 2};
+
+                    const VF4 aVector = Set(dfx4, a);
+                    VF4 srcXV = Set(dfx4, srcX);
+                    VI4 kx1V = Set(dix4, kx1);
+                    const VI4 appendixLowV = LoadU(dix4, appendixLow);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight = SampleOptionResult(dy, option);
+                        auto row = reinterpret_cast<const uint16_t *>(src8 +
+                                                                      clamp(yj, 0,
+                                                                            inputHeight - 1) *
+                                                                      srcStride);
+                        VF4 yWeightV = Set(dfx4, yWeight);
+                        VI4 xi = Add(kx1V, appendixLowV);
+                        VF4 dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        VF4 weights = Mul(SampleOptionResult(dfx4, dx, option), yWeightV);
+
+                        for (int i = 0; i < 4; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VF16x4 r1 = LoadU(df16x4,
+                                              reinterpret_cast<const float16_t *>(&row[sizeXPos]));
+                            VF4 fr1 = PromoteTo(dfx4, r1);
+                            fr1 = Mul(fr1, Set(dfx4, ExtractLane(weights, i)));
+                            color = Add(color, fr1);
+                        }
+                    }
+
+                    VF16x4 f16Color = DemoteTo(df16x4, color);
+                    StoreU(f16Color, df16x4,
+                           reinterpret_cast<float16_t *>(&dst16[x * components]));
+                } else {
+                    int a = 2;
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
+
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight = SampleOptionResult(dy, option);
+                        for (int i = -a + 1; i <= a; i++) {
+                            int xi = (int) kx1 + i;
+                            float dx = float(srcX) - (float(kx1) + (float) i);
+                            float weight = SampleOptionResult(dx, option) * yWeight;
+
+                            auto row = reinterpret_cast<const uint16_t *>(src8 +
+                                                                          clamp(yj, 0,
+                                                                                inputHeight - 1) *
+                                                                          srcStride);
+
+                            for (int c = 0; c < components; ++c) {
+                                half clrf = castU16(
+                                        row[clamp(xi, 0, inputWidth - 1) * components + c]);
+                                float clr = (float) clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+
+                    for (int c = 0; c < components; ++c) {
+                        dst16[x * components + c] = half(rgb[c]).data_;
+                    }
                 }
             } else if (option == lanczos || option == hann) {
-                KernelWindow2Func sampler;
-                switch (option) {
-                    case hann:
-                        sampler = HannWindow<float>;
-                        break;
-                    default:
-                        sampler = LanczosWindow<float>;
-                }
-                float rgb[components];
-                fill(rgb, rgb + components, 0.0f);
+                if (x + 8 < outputWidth && components == 4) {
+                    auto lanczosFA = float(3.0f);
+                    int a = 3;
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
 
-                constexpr float lanczosFA = float(3.0f);
-                constexpr int a = 3;
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
 
-                float kx1 = floor(srcX);
-                float ky1 = floor(srcY);
+                    float kWeightSum = 0;
+                    VF4 color = Set(dfx4, 0);
 
-                float weightSum(0.0f);
+                    const int appendixLow[4] = {-2, -1, 0, 1};
+                    const int appendixHigh[4] = {2, 3, 0, 0};
 
-                for (int j = -a + 1; j <= a; j++) {
-                    if (option == lanczos) {
-                        int yj = ky1 + j;
-                        float dy = float(srcY) - (float(ky1) + (float)j);
-                        float dyWeight = sampler(dy, (float)lanczosFA);
+                    const VF4 aVector = Set(dfx4, a);
+                    VF4 srcXV = Set(dfx4, srcX);
+                    VI4 kx1V = Set(dix4, kx1);
+                    const VI4 appendixLowV = LoadU(dix4, appendixLow);
+                    const VI4 appendixHighV = LoadU(dix4, appendixHigh);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight;
+                        if (option == lanczos) {
+                            yWeight = LanczosWindow(dy, lanczosFA);
+                        } else {
+                            yWeight = HannWindow(float(j), lanczosFA);
+                        }
+                        auto row = reinterpret_cast<const uint16_t *>(src8 +
+                                                                      clamp(yj, 0,
+                                                                            inputHeight - 1) *
+                                                                      srcStride);
+                        VF4 yWeightV = Set(dfx4, yWeight);
+                        VI4 xi = Add(kx1V, appendixLowV);
+                        VF4 dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        VF4 sampleParameter = dx;
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixLowV);
+                        }
+                        VF4 weights = Mul(SampleOptionResult(dfx4, sampleParameter, option),
+                                          yWeightV);
+                        kWeightSum += ExtractLane(SumOfLanes(dfx4, weights), 0);
+                        for (int i = 0; i < 4; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VF16x4 r1 = LoadU(df16x4,
+                                              reinterpret_cast<const float16_t *>(&row[sizeXPos]));
+                            VF4 fr1 = PromoteTo(dfx4, r1);
+                            fr1 = Mul(fr1, Set(dfx4, ExtractLane(weights, i)));
+                            color = Add(color, fr1);
+                        }
+
+                        xi = Add(kx1V, appendixHighV);
+                        dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        sampleParameter = dx;
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixLowV);
+                        }
+                        weights = Mul(SampleOptionResult(dfx4, sampleParameter, option), yWeightV);
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixHighV);
+                        }
+                        for (int i = 0; i < 2; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VF16x4 r1 = LoadU(df16x4,
+                                              reinterpret_cast<const float16_t *>(&row[sizeXPos]));
+                            VF4 fr1 = PromoteTo(dfx4, r1);
+                            float weight = ExtractLane(weights, i);
+                            kWeightSum += weight;
+                            fr1 = Mul(fr1, Set(dfx4, weight));
+                            color = Add(color, fr1);
+                        }
+                    }
+
+                    if (kWeightSum == 0) {
+                        VF16x4 f16Color = DemoteTo(df16x4, color);
+                        StoreU(f16Color, df16x4,
+                               reinterpret_cast<float16_t *>(&dst16[x * components]));
+                    } else {
+                        VF16x4 f16Color = DemoteTo(df16x4, Div(color, Set(dfx4, kWeightSum)));
+                        StoreU(f16Color, df16x4,
+                               reinterpret_cast<float16_t *>(&dst16[x * components]));
+                    }
+                } else {
+                    auto lanczosFA = float(3.0f);
+                    int a = 3;
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
+
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    float weightSum(0.0f);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight;
+                        if (option == lanczos) {
+                            yWeight = LanczosWindow(dy, lanczosFA);
+                        } else {
+                            yWeight = HannWindow(float(j), lanczosFA);
+                        }
                         for (int i = -a + 1; i <= a; i++) {
-                            int xi = kx1 + i;
-                            float dx = float(srcX) - (float(kx1) + (float)i);
-                            float weight = sampler(dx, (float)lanczosFA) * dyWeight;
+                            int xi = (int) kx1 + i;
+                            float dx = float(srcX) - (float(kx1) + (float) i);
+                            float weight;
+                            if (option == lanczos) {
+                                weight = LanczosWindow(dx, lanczosFA) * yWeight;
+                            } else {
+                                weight = HannWindow(float(i), lanczosFA) * yWeight;
+                            }
                             weightSum += weight;
 
-                            auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
+                            auto row = reinterpret_cast<const uint16_t *>(src8 +
+                                                                          clamp(yj, 0,
+                                                                                inputHeight - 1) *
+                                                                          srcStride);
 
                             for (int c = 0; c < components; ++c) {
-                                float clrf = static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]);
+                                half clrf = castU16(
+                                        row[clamp(xi, 0, inputWidth - 1) * components + c]);
+                                float clr = (float) clrf * weight;
+                                rgb[c] += clr;
+                            }
+                        }
+                    }
+
+                    for (int c = 0; c < components; ++c) {
+                        if (weightSum == 0) {
+                            dst16[x * components + c] = half(rgb[c]).data_;
+                        } else {
+                            dst16[x * components + c] = half(rgb[c] / weightSum).data_;
+                        }
+                    }
+                }
+            } else {
+                auto row = reinterpret_cast<const uint16_t *>(src8 + y1 * srcStride);
+                memcpy(&dst16[x * components], &row[x1 * components],
+                       sizeof(uint16_t) * components);
+            }
+        }
+    }
+
+    void scaleImageFloat16HWY(const uint16_t *input,
+                              int srcStride,
+                              int inputWidth, int inputHeight,
+                              uint16_t *output,
+                              int dstStride,
+                              int outputWidth, int outputHeight,
+                              int components,
+                              XSampler option) {
+        float xScale = static_cast<float>(inputWidth) / static_cast<float>(outputWidth);
+        float yScale = static_cast<float>(inputHeight) / static_cast<float>(outputHeight);
+
+        auto src8 = reinterpret_cast<const uint8_t *>(input);
+
+        int threadCount = clamp(min(static_cast<int>(std::thread::hardware_concurrency()),
+                                    outputHeight * outputWidth / (256 * 256)), 1, 12);
+        std::vector<std::thread> workers;
+
+        int segmentHeight = outputHeight / threadCount;
+
+        for (int i = 0; i < threadCount; i++) {
+            int start = i * segmentHeight;
+            int end = (i + 1) * segmentHeight;
+            if (i == threadCount - 1) {
+                end = outputHeight;
+            }
+            workers.emplace_back([start, end, src8, srcStride, dstStride, inputWidth, inputHeight,
+                                         output, outputWidth,
+                                         xScale, option, yScale, components]() {
+                for (int y = start; y < end; ++y) {
+                    scaleRowF16(src8, srcStride, dstStride, inputWidth, inputHeight,
+                                output, outputWidth,
+                                xScale, option, yScale, y, components);
+                }
+            });
+        }
+
+        for (std::thread &thread: workers) {
+            thread.join();
+        }
+    }
+
+    void
+    ScaleRowU8(const uint8_t *src8,
+               const int srcStride,
+               int inputWidth, int inputHeight, uint8_t *output,
+               const int dstStride,
+               int outputWidth,
+               const int components,
+               const XSampler option,
+               float xScale,
+               float yScale,
+               float maxColors,
+               int y) {
+        auto dst8 = reinterpret_cast<uint8_t *>(output + y * dstStride);
+        auto dst = reinterpret_cast<uint8_t *>(dst8);
+
+        const FixedTag<float32_t, 4> dfx4;
+        const FixedTag<int32_t, 4> dix4;
+        const FixedTag<uint32_t, 4> dux4;
+        const FixedTag<uint8_t, 4> du8x4;
+        using VI4 = Vec<decltype(dix4)>;
+        using VF4 = Vec<decltype(dfx4)>;
+        using VU8x4 = Vec<decltype(du8x4)>;
+
+        const int shift[4] = {0, 1, 2, 3};
+        const VI4 shiftV = LoadU(dix4, shift);
+        const VF4 xScaleV = Set(dfx4, xScale);
+        const VF4 yScaleV = Set(dfx4, yScale);
+        const VI4 addOne = Set(dix4, 1);
+        const VF4 fOneV = Set(dfx4, 1.0f);
+        const VI4 maxWidth = Set(dix4, inputWidth - 1);
+        const VI4 maxHeight = Set(dix4, inputHeight - 1);
+        const VI4 iZeros = Zero(dix4);
+        const VF4 vfZeros = Zero(dfx4);
+        const VI4 srcStrideV = Set(dix4, srcStride);
+        const VF4 maxColorsV = Set(dfx4, maxColors);
+
+        for (int x = 0; x < outputWidth; ++x) {
+            float srcX = (float) x * xScale;
+            float srcY = (float) y * yScale;
+
+            int x1 = static_cast<int>(srcX);
+            int y1 = static_cast<int>(srcY);
+
+            if (option == bilinear) {
+                if (components == 4 && x + 8 < outputWidth) {
+                    VI4 currentX = Set(dix4, x);
+                    VI4 currentXV = Add(currentX, shiftV);
+                    VF4 currentXVF = Mul(ConvertTo(dfx4, currentXV), xScaleV);
+                    VF4 currentYVF = Mul(ConvertTo(dfx4, Set(dix4, y)), yScaleV);
+
+                    VI4 xi1 = ConvertTo(dix4, Floor(currentXVF));
+                    VI4 yi1 = Min(ConvertTo(dix4, Floor(currentYVF)), maxHeight);
+
+                    VI4 xi2 = Min(Add(xi1, addOne), maxWidth);
+                    VI4 yi2 = Min(Add(yi1, addOne), maxHeight);
+
+                    VF4 dx = Max(Sub(currentXVF, ConvertTo(dfx4, xi1)), vfZeros);
+                    VF4 dy = Max(Sub(currentYVF, ConvertTo(dfx4, yi1)), vfZeros);
+
+                    VI4 row1Add = Mul(yi1, srcStrideV);
+                    VI4 row2Add = Mul(yi2, srcStrideV);
+
+                    for (int i = 0; i < 4; i++) {
+                        auto row1 = reinterpret_cast<const uint8_t *>(src8 +
+                                                                      ExtractLane(row1Add, i));
+                        auto row2 = reinterpret_cast<const uint8_t *>(src8 +
+                                                                      ExtractLane(row2Add, i));
+
+                        VU8x4 lane = LoadU(du8x4, reinterpret_cast<const uint8_t *>(&row1[
+                                ExtractLane(xi1, i) * components]));
+                        VF4 c1 = ConvertTo(dfx4, PromoteTo(dux4, lane));
+                        lane = LoadU(du8x4,
+                                     reinterpret_cast<const uint8_t *>(&row1[ExtractLane(xi2, i) *
+                                                                             components]));
+                        VF4 c2 = ConvertTo(dfx4, PromoteTo(dux4, lane));
+                        lane = LoadU(du8x4,
+                                     reinterpret_cast<const uint8_t *>(&row2[ExtractLane(xi1, i) *
+                                                                             components]));
+                        VF4 c3 = ConvertTo(dfx4, PromoteTo(dux4, lane));
+                        lane = LoadU(du8x4,
+                                     reinterpret_cast<const uint8_t *>(&row2[ExtractLane(xi2, i) *
+                                                                             components]));
+                        VF4 c4 = ConvertTo(dfx4, PromoteTo(dux4, lane));
+                        VF4 value = Blerp(dfx4, c1, c2, c3, c4, Set(dfx4, ExtractLane(dx, i)),
+                                          Set(dfx4, ExtractLane(dy, i)));
+                        VF4 sum = ClampRound(dfx4, value, vfZeros, maxColorsV);
+                        VU8x4 pixel = DemoteTo(du8x4, ConvertTo(dux4, sum));
+                        auto u8Store = &dst[ExtractLane(currentXV, i) * components];
+                        StoreU(pixel, du8x4, u8Store);
+                    }
+
+                    x += components - 1;
+                } else {
+                    for (int c = 0; c < components; ++c) {
+                        int x2 = min(x1 + 1, inputWidth - 1);
+                        int y2 = min(y1 + 1, inputHeight - 1);
+
+                        float dx = max((float) srcX - (float) x1, 0.0f);
+                        float dy = max((float) srcY - (float) y1, 0.0f);
+
+                        auto row1 = reinterpret_cast<const uint8_t *>(src8 + y1 * srcStride);
+                        auto row2 = reinterpret_cast<const uint8_t *>(src8 + y2 * srcStride);
+
+                        float c1 = static_cast<float>(row1[x1 * components + c]);
+                        float c2 = static_cast<float>(row1[x2 * components + c]);
+                        float c3 = static_cast<float>(row2[x1 * components + c]);
+                        float c4 = static_cast<float>(row2[x2 * components + c]);
+
+                        float result = blerp(c1, c2, c3, c4, dx, dy);
+                        float f = result;
+                        f = clamp(round(f), 0.0f, maxColors);
+                        dst[x * components + c] = static_cast<uint8_t>(f);
+                    }
+                }
+            } else if (option == cubic || option == mitchell || option == bSpline ||
+                       option == catmullRom || option == hermite) {
+                if (components == 4 && x + 8 < outputWidth &&
+                    (option == hermite || option == mitchell || option == catmullRom ||
+                     option == bSpline || option == cubic)) {
+                    // only kernel with size 3 is supported
+                    constexpr int kernelSize = 2;
+
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    VF4 color = Set(dfx4, 0);
+
+                    const int a = kernelSize;
+                    const int mMaxHeight = inputHeight - 1;
+                    const int mMaxWidth = inputWidth - 1;
+
+                    const int appendixLow[4] = {-1, 0, 1, 2};
+
+                    const VF4 aVector = Set(dfx4, a);
+                    VF4 srcXV = Set(dfx4, srcX);
+                    VI4 kx1V = Set(dix4, kx1);
+                    const VI4 appendixLowV = LoadU(dix4, appendixLow);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight = SampleOptionResult(dy, option);
+                        auto row = reinterpret_cast<const uint8_t *>(src8 +
+                                                                     clamp(yj, 0,
+                                                                           inputHeight - 1) *
+                                                                     srcStride);
+                        VF4 yWeightV = Set(dfx4, yWeight);
+                        VI4 xi = Add(kx1V, appendixLowV);
+                        VF4 dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        VF4 weights = Mul(SampleOptionResult(dfx4, dx, option), yWeightV);
+                        for (int i = 0; i < 4; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VU8x4 u81 = LoadU(du8x4,
+                                              reinterpret_cast<const uint8_t *>(&row[sizeXPos]));
+                            VF4 fr1 = ConvertTo(dfx4, PromoteTo(dix4, u81));
+                            fr1 = Mul(fr1, Set(dfx4, ExtractLane(weights, i)));
+                            color = Add(color, fr1);
+                        }
+                    }
+
+                    color = ClampRound(dfx4, color, vfZeros, maxColorsV);
+                    VU8x4 u8Color = DemoteTo(du8x4, ConvertTo(dux4, color));
+                    StoreU(u8Color, du8x4,
+                           reinterpret_cast<uint8_t *>(&dst[x * components]));
+                } else {
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    float weightSum(0.0f);
+
+                    int a = 2;
+
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight = SampleOptionResult(dy, option);
+
+                        auto row = reinterpret_cast<const uint8_t *>(src8 +
+                                                                     clamp(yj, 0,
+                                                                           inputHeight - 1) *
+                                                                     srcStride);
+
+                        for (int i = -a + 1; i <= a; i++) {
+                            int xi = (int) kx1 + i;
+                            float dx = float(srcX) - (float(kx1) + (float) i);
+                            float weight = SampleOptionResult(dx, option) * yWeight;
+                            weightSum += weight;
+
+                            for (int c = 0; c < components; ++c) {
+                                auto clrf = static_cast<float>(row[
+                                        clamp(xi, 0, inputWidth - 1) * components + c]);
                                 float clr = clrf * weight;
                                 rgb[c] += clr;
                             }
                         }
+                    }
+
+                    for (int c = 0; c < components; ++c) {
+                        dst[x * components + c] = static_cast<uint8_t>(clamp(
+                                round(rgb[c]),
+                                0.0f, maxColors));
+                    }
+                }
+            } else if (option == lanczos || option == hann) {
+                if (x + 8 < outputWidth && components == 4) {
+                    // only kernel with size 3 is supported
+                    constexpr int kernelSize = 3;
+
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    float kWeightSum = 0;
+                    VF4 color = Set(dfx4, 0);
+
+                    const int a = kernelSize;
+                    const int mMaxHeight = inputHeight - 1;
+                    const int mMaxWidth = inputWidth - 1;
+
+                    const int appendixLow[4] = {-2, -1, 0, 1};
+                    const int appendixHigh[4] = {2, 3, 0, 0};
+
+                    const VF4 aVector = Set(dfx4, a);
+                    VF4 srcXV = Set(dfx4, srcX);
+                    VI4 kx1V = Set(dix4, kx1);
+                    const VI4 appendixLowV = LoadU(dix4, appendixLow);
+                    const VI4 appendixHighV = LoadU(dix4, appendixHigh);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight;
+                        if (option == lanczos) {
+                            yWeight = LanczosWindow(dy, float(kernelSize));
+                        } else {
+                            yWeight = HannWindow(float(j), float(kernelSize));
+                        }
+                        auto row = reinterpret_cast<const uint8_t *>(src8 +
+                                                                     clamp(yj, 0,
+                                                                           inputHeight - 1) *
+                                                                     srcStride);
+                        VF4 yWeightV = Set(dfx4, yWeight);
+                        VI4 xi = Add(kx1V, appendixLowV);
+                        VF4 dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        VF4 sampleParameter = dx;
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixLowV);
+                        }
+                        VF4 weights = Mul(SampleOptionResult(dfx4, sampleParameter, option),
+                                          yWeightV);
+                        kWeightSum += ExtractLane(SumOfLanes(dfx4, weights), 0);
+                        for (int i = 0; i < 4; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VU8x4 u81 = LoadU(du8x4,
+                                              reinterpret_cast<const uint8_t *>(&row[sizeXPos]));
+                            VF4 fr1 = ConvertTo(dfx4, PromoteTo(dix4, u81));
+                            fr1 = Mul(fr1, Set(dfx4, ExtractLane(weights, i)));
+                            color = Add(color, fr1);
+                        }
+
+                        xi = Add(kx1V, appendixHighV);
+                        dx = Sub(srcXV, ConvertTo(dfx4, xi));
+                        sampleParameter = dx;
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixLowV);
+                        }
+                        weights = Mul(SampleOptionResult(dfx4, sampleParameter, option), yWeightV);
+                        if (option == hann) {
+                            sampleParameter = ConvertTo(dfx4, appendixHighV);
+                        }
+                        for (int i = 0; i < 2; ++i) {
+                            int sizeXPos = clamp(ExtractLane(xi, i), 0, mMaxWidth) * components;
+                            VU8x4 u81 = LoadU(du8x4,
+                                              reinterpret_cast<const uint8_t *>(&row[sizeXPos]));
+                            VF4 fr1 = ConvertTo(dfx4, PromoteTo(dix4, u81));
+                            float weight = ExtractLane(weights, i);
+                            kWeightSum += weight;
+                            fr1 = Mul(fr1, Set(dfx4, weight));
+                            color = Add(color, fr1);
+                        }
+                    }
+
+                    if (kWeightSum == 0) {
+                        color = ClampRound(dfx4, color, vfZeros, maxColorsV);
+                        VU8x4 u8Color = DemoteTo(du8x4, ConvertTo(dux4, color));
+                        StoreU(u8Color, du8x4,
+                               reinterpret_cast<uint8_t *>(&dst[x * components]));
                     } else {
-                        int yj = ky1 + j;
-                        float dyWeight = sampler(j, (float)lanczosFA);
+                        color = ClampRound(dfx4, Div(color, Set(dfx4, kWeightSum)), vfZeros,
+                                           maxColorsV);
+                        VU8x4 u8Color = DemoteTo(du8x4, ConvertTo(dux4, color));
+                        StoreU(u8Color, du8x4,
+                               reinterpret_cast<uint8_t *>(&dst[x * components]));
+                    }
+                } else {
+                    auto lanczosFA = float(3.0f);
+                    int a = 3;
+                    switch (option) {
+                        case hann:
+                            a = 3;
+                            lanczosFA = 3;
+                            break;
+                        default:
+                            break;
+                    }
+                    float rgb[components];
+                    fill(rgb, rgb + components, 0.0f);
+
+                    float kx1 = floor(srcX);
+                    float ky1 = floor(srcY);
+
+                    float weightSum(0.0f);
+
+                    for (int j = -a + 1; j <= a; j++) {
+                        int yj = (int) ky1 + j;
+                        float dy = float(srcY) - (float(ky1) + (float) j);
+                        float yWeight;
+                        if (option == lanczos) {
+                            yWeight = LanczosWindow(dy, float(lanczosFA));
+                        } else {
+                            yWeight = HannWindow(float(j), float(lanczosFA));
+                        }
                         for (int i = -a + 1; i <= a; i++) {
-                            int xi = kx1 + i;
-                            float weight = sampler(i, (float)lanczosFA) * dyWeight;
+                            int xi = (int) kx1 + i;
+                            float dx = float(srcX) - (float(kx1) + (float) i);
+                            float weight;
+                            if (option == lanczos) {
+                                weight = LanczosWindow(dx, float(lanczosFA)) * yWeight;
+                            } else {
+                                weight = HannWindow(float(i), float(lanczosFA)) * yWeight;
+                            }
                             weightSum += weight;
 
-                            auto row = reinterpret_cast<const uint16_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
+                            auto row = reinterpret_cast<const uint8_t *>(src8 +
+                                                                         clamp(yj, 0,
+                                                                               inputHeight - 1) *
+                                                                         srcStride);
 
                             for (int c = 0; c < components; ++c) {
-                                float clrf = static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]);
+                                auto clrf = static_cast<float>(row[
+                                        clamp(xi, 0, inputWidth - 1) * components + c]);
                                 float clr = clrf * weight;
                                 rgb[c] += clr;
                             }
                         }
                     }
-                }
 
-                for (int c = 0; c < components; ++c) {
-                    if (weightSum == 0) {
-                        dst16[x*components + c] = static_cast<float>(clamp(rgb[c], 0.0f, maxColors));
-                    } else {
-                        dst16[x*components + c] = static_cast<float>(clamp(rgb[c] / weightSum, 0.0f, maxColors));
+                    for (int c = 0; c < components; ++c) {
+                        if (weightSum == 0) {
+                            dst[x * components + c] = static_cast<uint8_t>(clamp(round(rgb[c]),
+                                                                                 0.0f,
+                                                                                 maxColors));
+                        } else {
+                            dst[x * components + c] = static_cast<uint8_t>(clamp(
+                                    round(rgb[c] / weightSum),
+                                    0.0f, maxColors));
+                        }
                     }
                 }
             } else {
-#if __arm64__
                 if (components == 4) {
-                    auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                    uint16x4_t m = vld1_u16(row + x1*components);
-                    vst1_u16(reinterpret_cast<uint16_t*>(dst16 + x*components), m);
+                    auto row = reinterpret_cast<const uint8_t *>(src8 + y1 * srcStride);
+                    reinterpret_cast<uint32_t *>(dst)[x] = reinterpret_cast<const uint32_t *>(row)[x1];
                 } else {
-                    auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                    memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
+                    auto row = reinterpret_cast<const uint8_t *>(src8 + y1 * srcStride);
+                    memcpy(&dst[x * components], &row[x1 * components],
+                           sizeof(uint8_t) * components);
                 }
-#else
-                auto row = reinterpret_cast<const uint16_t*>(src8 + y1 * srcStride);
-                memcpy(&dst16[x*components], &row[x1*components], sizeof(uint16_t)*components);
+            }
+        }
+    }
+
+    void scaleImageU8HWY(const uint8_t *input,
+                         const int srcStride,
+                         int inputWidth,
+                         int inputHeight,
+                         uint8_t *output,
+                         const int dstStride,
+                         int outputWidth,
+                         int outputHeight,
+                         const int components,
+                         const int depth,
+                         const XSampler option) {
+        float xScale = static_cast<float>(inputWidth) / static_cast<float>(outputWidth);
+        float yScale = static_cast<float>(inputHeight) / static_cast<float>(outputHeight);
+
+        auto src8 = reinterpret_cast<const uint8_t *>(input);
+
+        float maxColors = pow(2.0f, (float) depth) - 1.0f;
+
+        int threadCount = clamp(min(static_cast<int>(std::thread::hardware_concurrency()),
+                                    outputHeight * outputWidth / (256 * 256)), 1, 12);
+        vector<std::thread> workers;
+
+        int segmentHeight = outputHeight / threadCount;
+
+        for (int i = 0; i < threadCount; i++) {
+            int start = i * segmentHeight;
+            int end = (i + 1) * segmentHeight;
+            if (i == threadCount - 1) {
+                end = outputHeight;
+            }
+            workers.emplace_back([start, end, src8, srcStride, inputWidth, inputHeight, output,
+                                         dstStride, outputWidth, components,
+                                         option,
+                                         xScale, yScale, maxColors]() {
+                for (int y = start; y < end; ++y) {
+                    ScaleRowU8(src8, srcStride, inputWidth, inputHeight, output,
+                               dstStride, outputWidth, components,
+                               option,
+                               xScale, yScale, maxColors, y);
+                }
+            });
+        }
+
+        for (std::thread &thread: workers) {
+            thread.join();
+        }
+    }
+}
+
+HWY_AFTER_NAMESPACE();
+
+#if HWY_ONCE
+namespace coder {
+    HWY_EXPORT(scaleImageFloat16HWY);
+
+    void scaleImageFloat16(const uint16_t *input,
+                           int srcStride,
+                           int inputWidth, int inputHeight,
+                           uint16_t *output,
+                           int dstStride,
+                           int outputWidth, int outputHeight,
+                           int components,
+                           XSampler option) {
+        HWY_DYNAMIC_DISPATCH(scaleImageFloat16HWY)(input, srcStride, inputWidth, inputHeight,
+                                                   output, dstStride, outputWidth, outputHeight,
+                                                   components, option);
+    }
+
+    HWY_EXPORT(scaleImageU8HWY);
+
+    void scaleImageU8(const uint8_t *input,
+                      int srcStride,
+                      int inputWidth, int inputHeight,
+                      uint8_t *output,
+                      int dstStride,
+                      int outputWidth, int outputHeight,
+                      int components,
+                      int depth,
+                      XSampler option) {
+        HWY_DYNAMIC_DISPATCH(scaleImageU8HWY)(input, srcStride, inputWidth, inputHeight, output,
+                                              dstStride, outputWidth, outputHeight, components,
+                                              depth, option);
+    }
+}
 #endif
-            }
-
-        }
-    }
-}
-
-static void SetRowU8(int components, int inputWidth, float *rgb, const uint8_t *row, bool useNEONIfAvailable, float weight, int xi) {
-#if __arm64__
-    if (useNEONIfAvailable) {
-        auto row16 = reinterpret_cast<const uint8_t*>(&row[clamp(xi, 0, inputWidth - 1)*components]);
-        if (components == 3) {
-            float32x4_t vc = { (float)row16[0], (float)row16[1], (float)row16[2], 0.0f };
-            float32x4_t x = vmulq_n_f32(vc, weight);
-            float32x4_t m = vld1q_f32(rgb);
-            vst1q_f32(rgb, vaddq_f32(m, x));
-        } else if (components == 4) {
-            float32x4_t vc = {
-                (float)row16[0],
-                (float)row16[1],
-                (float)row16[2],
-                (float)row16[3]
-            };
-            float32x4_t x = vmulq_n_f32(vc, weight);
-            float32x4_t m = vld1q_f32(rgb);
-            vst1q_f32(rgb, vaddq_f32(m, x));
-        }
-    }
-#endif
-
-    if (!useNEONIfAvailable) {
-        for (int c = 0; c < components; ++c) {
-            float clrf = static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]);
-            float clr = clrf * weight;
-            rgb[c] += clr;
-        }
-    }
-}
-
-static void scaleRowU8(int components, int dstStride, int inputHeight, int inputWidth, float maxColors, 
-                       XSampler option, uint8_t *output, int outputWidth, const uint8_t *src8, int srcStride,
-                       bool useNEONIfAvailable, float xScale, size_t y, float yScale) {
-    auto dst8 = reinterpret_cast<uint8_t*>(output + y * dstStride);
-    auto dst = reinterpret_cast<uint8_t*>(dst8);
-
-    int x = 0;
-
-    for (; x < outputWidth; ++x) {
-        float srcX = x * xScale;
-        float srcY = y * yScale;
-
-        int x1 = static_cast<int>(srcX);
-        int y1 = static_cast<int>(srcY);
-
-        if (option == bilinear) {
-            int x2 = min(x1 + 1, inputWidth - 1);
-            int y2 = min(y1 + 1, inputHeight - 1);
-
-            float dx = (float)x2 - (float)x1;
-            float dy = (float)y2 - (float)y1;
-
-            auto row1 = reinterpret_cast<const uint8_t*>(src8 + y1 * srcStride);
-            auto row2 = reinterpret_cast<const uint8_t*>(src8 + y2 * srcStride);
-
-            float invertDx = float(1.0f) - dx;
-            float invertDy = float(1.0f) - dy;
-
-            for (int c = 0; c < components; ++c) {
-                float c1 = static_cast<float>(row1[x1*components + c]) * invertDx * invertDy;
-                float c2 = static_cast<float>(row1[x2*components + c]) * dx * invertDy;
-                float c3 = static_cast<float>(row2[x1*components + c]) * invertDx * dy;
-                float c4 = static_cast<float>(row2[x2*components + c]) * dx * dy;
-
-                float result = (c1 + c2 + c3 + c4);
-                float f = clamp(result, 0.0f, maxColors);
-                dst[x*components + c] = static_cast<uint8_t>(f);
-
-            }
-        } else if (option == cubic || option == mitchell || option == bSpline || option == catmullRom || option == hermite) {
-            KernelSample4Func sampler;
-            switch (option) {
-                case cubic:
-                    sampler = SimpleCubic<float>;
-                    break;
-                case mitchell:
-                    sampler = MitchellNetravali<float>;
-                    break;
-                case catmullRom:
-                    sampler = CatmullRom<float>;
-                    break;
-                case bSpline:
-                    sampler = CubicBSpline<float>;
-                    break;
-                case hermite:
-                    sampler = CubicHermite<float>;
-                    break;
-                default:
-                    sampler = CubicBSpline<float>;
-            }
-            float kx1 = floor(srcX);
-            float ky1 = floor(srcY);
-
-            int xi = kx1;
-            int yj = ky1;
-
-            auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-            auto rowy1 = reinterpret_cast<const uint8_t*>(src8 + clamp(yj + 1, 0, inputHeight - 1) * srcStride);
-
-            for (int c = 0; c < components; ++c) {
-                float weight = sampler(srcX - (float)xi,
-                                       static_cast<float>(row[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                       static_cast<float>(rowy1[clamp(xi, 0, inputWidth - 1)*components + c]),
-                                       static_cast<float>(row[clamp(xi + 1, 0, inputWidth - 1)*components + c]),
-                                       static_cast<float>(rowy1[clamp(xi + 1, 0, inputWidth - 1)*components + c]));
-                uint8_t clr = (uint8_t) clamp(weight, 0.0f, maxColors);
-                dst[x*components + c] = clr;
-            }
-        } else if (option == lanczos || option == hann) {
-            KernelWindow2Func sampler;
-            switch (option) {
-                case hann:
-                    sampler = HannWindow<float>;
-                    break;
-                default:
-                    sampler = LanczosWindow<float>;
-            }
-            float rgb[4];
-            fill(rgb, rgb + 4, 0.0f);
-
-            constexpr float lanczosFA = float(3.0f);
-
-            constexpr int a = 3;
-
-            float kx1 = floor(srcX);
-            float ky1 = floor(srcY);
-
-            float weightSum(0.0f);
-
-            const bool useNeonAccumulator = components == 4 || components == 3;
-
-            for (int j = -a + 1; j <= a; j++) {
-                if (option == lanczos) {
-                    int yj = ky1 + j;
-                    float dy = float(srcY) - (float(ky1) + (float)j);
-                    float dyWeight = sampler(dy, (float)lanczosFA);
-                    auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-
-                    for (int i = -a + 1; i <= a; i++) {
-                        int xi = kx1 + i;
-                        float dx = float(srcX) - (float(kx1) + (float)i);
-                        float weight = sampler(dx, (float)lanczosFA) * dyWeight;
-                        weightSum += weight;
-
-                        SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
-                    }
-                } else {
-                    int yj = ky1 + j;
-                    float dyWeight = sampler(j, (float)lanczosFA);
-                    auto row = reinterpret_cast<const uint8_t*>(src8 + clamp(yj, 0, inputHeight - 1) * srcStride);
-
-                    for (int i = -a + 1; i <= a; i++) {
-                        int xi = kx1 + i;
-                        float weight = sampler(i, (float)lanczosFA) * dyWeight;
-                        weightSum += weight;
-
-                        SetRowU8(components, inputWidth, rgb, row, useNEONIfAvailable, weight, xi);
-                    }
-                }
-            }
-#if __arm64__
-            if (useNEONIfAvailable && useNeonAccumulator) {
-                if (components == 4) {
-                    float32x4_t xx = vld1q_f32(rgb);
-                    xx = vdivq_f32(xx, vdupq_n_f32(weightSum));
-                    float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(xx), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
-                    uint16x4_t m = vqmovn_u32(vcvtq_u32_f32(result));
-                    dst[x*components] = (uint8_t)vget_lane_u16(m, 0);
-                    dst[x*components + 1] = (uint8_t)vget_lane_u16(m, 1);
-                    dst[x*components + 2] = (uint8_t)vget_lane_u16(m, 2);
-                    dst[x*components + 3] = (uint8_t)vget_lane_u16(m, 3);
-                } else {
-                    float32x4_t xx = vld1q_f32(rgb);
-                    xx = vdivq_f32(xx, vdupq_n_f32(weightSum));
-                    float32x4_t result = vminq_f32(vmaxq_f32(vrndq_f32(xx), vdupq_n_f32(0)), vdupq_n_f32(maxColors));
-                    uint16x4_t m = vqmovn_u32(vcvtq_u32_f32(result));
-                    dst[x*components] = (uint8_t)vget_lane_u16(m, 0);
-                    dst[x*components + 1] = (uint8_t)vget_lane_u16(m, 1);
-                    dst[x*components + 2] = (uint8_t)vget_lane_u16(m, 2);
-                }
-            }
-#endif
-            if (!useNEONIfAvailable || !useNeonAccumulator) {
-                for (int c = 0; c < components; ++c) {
-                    if (weightSum == 0) {
-                        dst[x*components + c] = static_cast<uint8_t>(clamp(rgb[c], 0.0f, maxColors));
-                    } else {
-                        dst[x*components + c] = static_cast<uint8_t>(clamp(rgb[c] / weightSum, 0.0f, maxColors));
-                    }
-                }
-            }
-
-        } else {
-            auto row = reinterpret_cast<const uint8_t*>(src8 + y1 * srcStride);
-            if (components == 4) {
-                reinterpret_cast<uint32_t*>(dst + x*components)[0] = reinterpret_cast<const uint32_t*>(row + x1*components)[0];
-            } else {
-                memcpy(&dst[x*components], &row[x1*components], sizeof(uint8_t)*components);
-            }
-        }
-    }
-}
-
-void scaleImageU8(uint8_t* input,
-                  int srcStride,
-                  int inputWidth, int inputHeight,
-                  uint8_t* output,
-                  int dstStride,
-                  int outputWidth, int outputHeight,
-                  int components,
-                  int depth,
-                  XSampler option) {
-    float xScale = static_cast<float>(inputWidth) / static_cast<float>(outputWidth);
-    float yScale = static_cast<float>(inputHeight) / static_cast<float>(outputHeight);
-
-    auto src8 = reinterpret_cast<const uint8_t*>(input);
-
-    float maxColors = pow(2, depth) - 1;
-    float colorScale = 1.0f/maxColors;
-
-    bool useNEONIfAvailable = false;
-    if (components == 3 || components == 4) {
-        useNEONIfAvailable = true;
-    }
-
-    int threadCount = clamp(min(static_cast<int>(thread::hardware_concurrency()), outputHeight * outputWidth / (256*256)), 1, 12);
-    vector<thread> workers;
-
-    int segmentHeight = outputHeight / threadCount;
-
-    for (int i = 0; i < threadCount; i++) {
-        int start = i * segmentHeight;
-        int end = (i + 1) * segmentHeight;
-        if (i == threadCount - 1) {
-            end = outputHeight;
-        }
-        workers.emplace_back([start, end, components, dstStride, inputHeight, inputWidth, maxColors, option,
-                              output, outputWidth, src8, srcStride, useNEONIfAvailable, xScale, yScale]() {
-            for (int y = start; y < end; ++y) {
-                scaleRowU8(components, dstStride, inputHeight, inputWidth, maxColors, option,
-                           output, outputWidth, src8, srcStride, useNEONIfAvailable, xScale, y, yScale);
-            }
-        });
-    }
-
-    for (std::thread& thread : workers) {
-        thread.join();
-    }
-}

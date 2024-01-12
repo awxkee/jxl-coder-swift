@@ -38,7 +38,7 @@ using namespace std;
 static bool scaleF16iOS16(vector<uint8_t> &src, int components, int width, int height, int newWidth, int newHeight, XSampler sampler) {
     vector<uint8_t> dst(components * sizeof(uint16_t) * newWidth * newHeight);
 
-    scaleImageFloat16(reinterpret_cast<uint16_t*>(src.data()),
+    coder::scaleImageFloat16(reinterpret_cast<uint16_t*>(src.data()),
                       components * sizeof(uint16_t) * width, width, height, reinterpret_cast<uint16_t*>(dst.data()),
                       components * sizeof(uint16_t) * newWidth, newWidth, newHeight, components, sampler);
 
@@ -49,7 +49,7 @@ static bool scaleF16iOS16(vector<uint8_t> &src, int components, int width, int h
 + (bool)scaleRGB8:(vector<uint8_t> &)src components:(int)components width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight sampler:(XSampler)sampler {
     vector<uint8_t> dst(components * sizeof(uint8_t) * newWidth * newHeight);
 
-    scaleImageU8(reinterpret_cast<uint8_t*>(src.data()),
+    coder::scaleImageU8(reinterpret_cast<uint8_t*>(src.data()),
                  components * sizeof(uint8_t) * width, width, height, reinterpret_cast<uint8_t*>(dst.data()),
                  components * sizeof(uint8_t) * newWidth, newWidth, newHeight, components, 8, sampler);
     src = dst;
