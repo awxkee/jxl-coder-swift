@@ -35,65 +35,6 @@ using namespace std;
 #pragma clang fp contract(fast) exceptions(ignore) reassociate(on)
 #endif
 
-// P Found using maxima
-//
-// y(x) := 4 * x * (%pi-x) / (%pi^2) ;
-// z(x) := (1-p)*y(x) + p * y(x)^2;
-// e(x) := z(x) - sin(x);
-// solve( diff( integrate( e(x)^2, x, 0, %pi/2 ), p ) = 0, p ),numer;
-//
-// [p = .2248391013559941]
-template <typename T>
-inline T fastSin1(T x)
-{
-    //    x = fmod(x + M_PI, M_PI * 2) - M_PI;
-    constexpr T A = T(4.0)/(T(M_PI)*T(M_PI));
-    constexpr T P = 0.2248391013559941;
-    T y = A * x * ( T(M_PI) - x );
-    return y * ( (1-P)  + y * P );
-}
-
-// P and Q found using maxima
-//
-// y(x) := 4 * x * (%pi-x) / (%pi^2) ;
-// zz(x) := (1-p-q)*y(x) + p * y(x)^2 + q * y(x)^3
-// ee(x) := zz(x) - sin(x)
-// solve( [ integrate( diff(ee(x)^2, p ), x, 0, %pi/2 ) = 0, integrate( diff(ee(x)^2,q), x, 0, %pi/2 ) = 0 ] , [p,q] ),numer;
-//
-// [[p = .1952403377008734, q = .01915214119105392]]
-template <typename T>
-inline T fastSin2(T x)
-{
-    constexpr T A = T(4.0)/(T(M_PI)*T(M_PI));
-    constexpr T P = 0.1952403377008734;
-    constexpr T Q = 0.01915214119105392;
-
-    T y = A * x * ( T(M_PI) - x );
-
-    return y*((1-P-Q) + y*( P + y * Q ) ) ;
-}
-
-template <typename T>
-inline T fastCos(T x) {
-    constexpr T C0 = 0.99940307;
-    constexpr T C1 = -0.49558072;
-    constexpr T C2 = 0.03679168;
-    constexpr T C3 = -0.00434102;
-
-    // Map x to the range [-pi, pi]
-    while (x < -2*M_PI) {
-        x += 2.0 * M_PI;
-    }
-    while (x > 2*M_PI) {
-        x -= 2.0 * M_PI;
-    }
-
-    // Calculate cos(x) using Chebyshev polynomial approximation
-    T x2 = x * x;
-    T result = C0 + x2 * (C1 + x2 * (C2 + x2 * C3));
-    return result;
-}
-
 template <typename T>
 inline half_float::half PromoteToHalf(T t, float maxColors) {
     half_float::half result((float)t / maxColors);
@@ -203,7 +144,7 @@ inline T sinc(T x) {
     if (x == 0.0) {
         return T(1.0);
     } else {
-        return fastSin2(x) / x;
+        return std::sin(x) / x;
     }
 }
 
@@ -220,7 +161,7 @@ template <typename T>
 inline T HannWindow(T x, const T length) {
     const float size = length * 2 + 1;
     if (abs(x) <= size) {
-        return 0.5f * (1 - fastCos(T(2)*T(M_PI) * x / length));
+        return 0.5f * (1 - std::cos(T(2)*T(M_PI) * x / length));
     }
     return T(0);
 }
@@ -252,9 +193,6 @@ inline T CatmullRom(T x, T p0, T p1, T p2, T p3) {
     return T(0.0);
 }
 
-template float fastSin1(float x);
-template float fastSin2(float x);
-template float fastCos(float x);
 template float PromoteTo<float, uint16_t>(uint16_t, float);
 template float PromoteTo<float, uint8_t>(uint8_t, float);
 template uint8_t DemoteTo<uint8_t, float>(float, float);
