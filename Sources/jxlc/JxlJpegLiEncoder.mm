@@ -62,6 +62,7 @@ public:
     try {
         jxlcoder::JPEGLIEncoder encoder(mRGBASource.data(), stride, width, height,
                                         useXYB ? jxlcoder::JPEGLI_COMPRESSION_MODE_XYB : jxlcoder::JPEGLI_COMPRESSION_MODE_DEFAULT);
+        encoder.setQuality(quality);
         std::vector<uint8_t> encoded = encoder.encode();
         JxlJpegLiDataWrapper<uint8_t>* dataWrapper = new JxlJpegLiDataWrapper<uint8_t>();
         dataWrapper->data = encoded;
