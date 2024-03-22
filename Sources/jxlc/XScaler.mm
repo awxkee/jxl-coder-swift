@@ -11,8 +11,6 @@
 #include "sampler.h"
 #include "concurrency.hpp"
 
-#define HWY_COMPILE_ONLY_STATIC
-
 #if defined(__clang__)
 #pragma clang fp contract(fast) exceptions(ignore) reassociate(on)
 #endif
@@ -137,14 +135,11 @@ scaleRowF16(const uint8_t *src8,
     const VF4 xScaleV = Set(dfx4, xScale);
     const VF4 yScaleV = Set(dfx4, yScale);
     const VI4 addOne = Set(dix4, 1);
-    const VF4 fOneV = Set(dfx4, 1.0f);
     const VI4 maxWidth = Set(dix4, inputWidth - 1);
     const VI4 maxHeight = Set(dix4, inputHeight - 1);
-    const VI4 iZeros = Zero(dix4);
     const VF4 vfZeros = Zero(dfx4);
     const VI4 srcStrideV = Set(dix4, srcStride);
     const int mMaxWidth = inputWidth - 1;
-    const int mMaxHeight = inputHeight - 1;
     
     for (int x = 0; x < outputWidth; ++x) {
         float srcX = (float) x * xScale;
@@ -201,9 +196,6 @@ scaleRowF16(const uint8_t *src8,
                 float dx((float) srcX - (float) x1);
                 float dy((float) srcY - (float) y1);
                 
-                float invertDx = float(1.0f) - dx;
-                float invertDy = float(1.0f) - dy;
-                
                 auto row1 = reinterpret_cast<const uint16_t *>(src8 + y1 * srcStride);
                 auto row2 = reinterpret_cast<const uint16_t *>(src8 + y2 * srcStride);
                 
@@ -232,7 +224,6 @@ scaleRowF16(const uint8_t *src8,
                 
                 const int appendixLow[4] = {-1, 0, 1, 2};
                 
-                const VF4 aVector = Set(dfx4, a);
                 VF4 srcXV = Set(dfx4, srcX);
                 VI4 kx1V = Set(dix4, kx1);
                 const VI4 appendixLowV = LoadU(dix4, appendixLow);
@@ -314,7 +305,6 @@ scaleRowF16(const uint8_t *src8,
                 const int appendixLow[4] = {-2, -1, 0, 1};
                 const int appendixHigh[4] = {2, 3, 0, 0};
                 
-                const VF4 aVector = Set(dfx4, a);
                 VF4 srcXV = Set(dfx4, srcX);
                 VI4 kx1V = Set(dix4, kx1);
                 const VI4 appendixLowV = LoadU(dix4, appendixLow);
@@ -495,10 +485,8 @@ ScaleRowU8(const uint8_t *src8,
     const VF4 xScaleV = Set(dfx4, xScale);
     const VF4 yScaleV = Set(dfx4, yScale);
     const VI4 addOne = Set(dix4, 1);
-    const VF4 fOneV = Set(dfx4, 1.0f);
     const VI4 maxWidth = Set(dix4, inputWidth - 1);
     const VI4 maxHeight = Set(dix4, inputHeight - 1);
-    const VI4 iZeros = Zero(dix4);
     const VF4 vfZeros = Zero(dfx4);
     const VI4 srcStrideV = Set(dix4, srcStride);
     const VF4 maxColorsV = Set(dfx4, maxColors);
@@ -595,12 +583,10 @@ ScaleRowU8(const uint8_t *src8,
                 VF4 color = Set(dfx4, 0);
                 
                 const int a = kernelSize;
-                const int mMaxHeight = inputHeight - 1;
                 const int mMaxWidth = inputWidth - 1;
                 
                 const int appendixLow[4] = {-1, 0, 1, 2};
                 
-                const VF4 aVector = Set(dfx4, a);
                 VF4 srcXV = Set(dfx4, srcX);
                 VI4 kx1V = Set(dix4, kx1);
                 const VI4 appendixLowV = LoadU(dix4, appendixLow);
@@ -685,13 +671,11 @@ ScaleRowU8(const uint8_t *src8,
                 VF4 color = Set(dfx4, 0);
                 
                 const int a = kernelSize;
-                const int mMaxHeight = inputHeight - 1;
                 const int mMaxWidth = inputWidth - 1;
                 
                 const int appendixLow[4] = {-2, -1, 0, 1};
                 const int appendixHigh[4] = {2, 3, 0, 0};
                 
-                const VF4 aVector = Set(dfx4, a);
                 VF4 srcXV = Set(dfx4, srcX);
                 VI4 kx1V = Set(dix4, kx1);
                 const VI4 appendixLowV = LoadU(dix4, appendixLow);
@@ -862,7 +846,7 @@ void scaleImageU8HWY(const uint8_t *input,
     const int threadCount = clamp(min(static_cast<int>(std::thread::hardware_concurrency()),
                                       outputHeight * outputWidth / (256 * 256)), 1, 12);
     
-    concurrency::parallel_for(7, outputHeight, [&](int y) {
+    concurrency::parallel_for(threadCount, outputHeight, [&](int y) {
         ScaleRowU8(src8, srcStride, inputWidth, inputHeight, output,
                    dstStride, outputWidth, components,
                    option,

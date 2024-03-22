@@ -67,6 +67,19 @@ try! animEncoder.add(frame: frameToAnimate, duration: 150)
 let animationJxlData = try! animEncoder.finish()
 ```
 
+## Loseless JPEG transcoding
+
+```swift
+let transcoded = try! JXLCoder.transcode(jpegData: Data())
+let jpegData: Data = try! JXLCoder.inverse(jxlData: Data())
+```
+
+## Jpegli encoding
+
+```swift
+let encoded: Data = try! JpegLiEncoder.encode(image: UIImage())
+```
+
 ## Nuke Plugin
 
 If you wish to use `JXL` with <a href="https://github.com/kean/Nuke" target="_blank">`Nuke`</a> you may add `JxlCoder` library to project and activate the plugin on app init

@@ -90,18 +90,19 @@ public:
 
 -(nullable void*)addFrame:(nonnull JXLSystemImage *)platformImage duration:(int)duration error:(NSError * _Nullable *_Nullable)error {
     try {
-        size_t bufferSize;
         int width, height;
-        auto rgbaData = [platformImage jxlRGBAPixels:&bufferSize width:&width height:&height];
+        std::vector<uint8_t> buf;
+        auto imageRetrievingResult = [platformImage jxlRGBAPixels:buf width:&width height:&height];
         if (width != enc->getWidth() || height != enc->getHeight()) {
-            free(rgbaData);
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500
                                             userInfo:@{ NSLocalizedDescriptionKey: @"Width and height of all images must be equal" }];
             return nil;
         }
-        std::vector<uint8_t> buf((int)bufferSize);
-        std::copy(rgbaData, rgbaData + bufferSize, buf.begin());
-        free(rgbaData);
+        if (!imageRetrievingResult) {
+            *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500
+                                            userInfo:@{ NSLocalizedDescriptionKey: @"Can't recieve an image from Platform image" }];
+            return nil;
+        }
         if (enc->getJxlPixelType() == rgb) {
             auto resizedVector = [RgbRgbaConverter convertRGBAtoRGB:buf width:width height:height];
             if (resizedVector.size() == 1) {

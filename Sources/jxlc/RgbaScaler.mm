@@ -65,7 +65,9 @@ static bool scaleF16iOS16(vector<uint8_t> &src, int components, int width, int h
 
     try {
         if (pixelFormat == kU8) {
-            return [self scaleRGB8:src components:components width:width height:height newWidth:newWidth newHeight:newHeight sampler:sampler];
+            return [self scaleRGB8:src components:components 
+                             width:width height:height 
+                          newWidth:newWidth newHeight:newHeight sampler:sampler];
         } else if (pixelFormat == kF16) {
             return scaleF16iOS16(src, components, width, height, newWidth, newHeight, sampler);
         }

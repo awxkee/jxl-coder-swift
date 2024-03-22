@@ -39,6 +39,10 @@
 #define JXLSystemImage   UIImage
 #endif
 
+#ifdef __cplusplus
+#include <vector>
+#endif
+
 typedef NS_ENUM(NSInteger, JXLColorSpace)  {
     kRGB NS_SWIFT_NAME(rgb),
     kRGBA NS_SWIFT_NAME(rgba)
@@ -76,7 +80,9 @@ typedef NS_ENUM(NSInteger, JXLEncoderDecodingSpeed)  {
 };
 
 @interface JXLSystemImage (JXLColorData)
-- (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize;
+#ifdef __cplusplus
+- (bool)jxlRGBAPixels:(std::vector<uint8_t>&)buffer width:(nonnull int*)xSize height:(nonnull int*)ySize;
+#endif
 @end
 
 #endif /* JXLSystemImage_h */

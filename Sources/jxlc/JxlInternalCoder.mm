@@ -32,11 +32,6 @@
 #import "RgbaScaler.h"
 #import <algorithm>
 
-static void JXLCGData16ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
-    auto dataWrapper = static_cast<JXLDataWrapper<uint16_t>*>(info);
-    delete dataWrapper;
-}
-
 static void JXLCGData8ProviderReleaseDataCallback(void *info, const void *data, size_t size) {
     auto dataWrapper = static_cast<JXLDataWrapper<uint8_t>*>(info);
     delete dataWrapper;
@@ -73,14 +68,14 @@ static inline float JXLGetDistance(const int quality)
             return nil;
         }
 
-        size_t bufferSize;
+        std::vector<uint8_t> pixels;
         int width, height;
-        auto rgbaData = [platformImage jxlRGBAPixels:&bufferSize width:&width height:&height];
+        auto imageRetrievingResult = [platformImage jxlRGBAPixels:pixels width:&width height:&height];
         if (width < 0 || height < 0) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Width and height must be > 0!!" }];
             return nil;
         }
-        if (!rgbaData) {
+        if (!imageRetrievingResult) {
             *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Can' create preview of image" }];
             return nil;
         }
@@ -105,9 +100,6 @@ static inline float JXLGetDistance(const int quality)
                 jCompressionOption = loosy;
                 break;
         }
-        std::vector<uint8_t> pixels;
-        pixels.insert(pixels.end(), (uint8_t*)rgbaData, rgbaData + bufferSize);
-        free(rgbaData);
 
         if (jColorspace == rgb) {
             auto resizedVector = [RgbRgbaConverter convertRGBAtoRGB:pixels width:width height:height];

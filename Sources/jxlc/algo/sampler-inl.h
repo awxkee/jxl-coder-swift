@@ -155,8 +155,6 @@ HWY_MATH_INLINE T SimpleCubicV(const D df, T x) {
     const T zeros = Zero(df);
     const T ones = Set(df, 1.0);
     const T two = Set(df, 2.0);
-    const T doubled = Mul(x, x);
-    const T tripled = Mul(doubled, x);
     auto setZeroMask = x > two;
     auto setP1Mask = x < ones;
     auto setP2Mask = x >= ones;
@@ -209,7 +207,6 @@ template<class D, typename T = Vec<D>>
 HWY_MATH_INLINE T HannWindow(const D df, const T n, const float length) {
     const float size = length * 2;
     const T sizeV = Set(df, size);
-    const T lengthV = Set(df, length);
     auto mask = Abs(n) > Set(df, length);
     const T piMulSize = Set(df, M_PI / size);
     T res = hwy::HWY_NAMESPACE::sleef::CosFast(df, Mul(piMulSize, n));

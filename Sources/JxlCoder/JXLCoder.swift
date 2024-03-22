@@ -110,7 +110,23 @@ public class JXLCoder {
                                  quality: Int32(quality),
                                  decodingSpeed: decodingSpeed)
     }
+    
+    /***
+     - Parameter jpegData: Data that contains JPEG image to transcode into a JXL
+     - Returns: JXL data of the image
+     **/
+    public static func transcode(jpegData: Data) throws -> Data {
+        return try JxlConstruction.transcode(jpegData)
+    }
 
+    /***
+     - Parameter jxlData: Data that contains JXL image to inverse back into a JPEG
+     - Returns: JPEG data of the image
+     **/
+    public static func inverse(jxlData: Data) throws -> Data {
+        return try JxlConstruction.inverse(jxlData)
+    }
+    
     /***
      - Returns: size of the image, if successfully get this
      **/

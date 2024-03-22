@@ -57,20 +57,19 @@
     return imageRef;
 }
 
-- (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize {
+- (bool)jxlRGBAPixels:(std::vector<uint8_t>&)buffer width:(nonnull int*)xSize height:(nonnull int*)ySize {
     CGImageRef imageRef = [self makeCGImage];
     NSUInteger width = CGImageGetWidth(imageRef);
     NSUInteger height = CGImageGetHeight(imageRef);
     int stride = (int)4 * (int)width * sizeof(uint8_t);
-    uint8_t *targetMemory = reinterpret_cast<uint8_t*>(malloc((int)(stride * height)));
-    *bufferSize = (size_t)(stride * height);
+    buffer.resize(stride * height);
     *xSize = (int)width;
     *ySize = (int)height;
 
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGBitmapInfo bitmapInfo = (int)kCGImageAlphaPremultipliedLast | (int)kCGImageByteOrderDefault;
 
-    CGContextRef targetContext = CGBitmapContextCreate(targetMemory, width, height, 8, stride, colorSpace, bitmapInfo);
+    CGContextRef targetContext = CGBitmapContextCreate(buffer.data(), width, height, 8, stride, colorSpace, bitmapInfo);
 
     [NSGraphicsContext saveGraphicsState];
     [NSGraphicsContext setCurrentContext: [NSGraphicsContext graphicsContextWithCGContext:targetContext flipped:FALSE]];
@@ -85,38 +84,35 @@
     CGContextRelease(targetContext);
     CGColorSpaceRelease(colorSpace);
 
-    if (![self unpremultiply:targetMemory width:width height:height]) {
-        free(targetMemory);
-        return nil;
+    if (![self unpremultiply:buffer.data() width:width height:height]) {
+        return false;
     }
 
-    return targetMemory;
+    return true;
 }
 #else
-- (nullable uint8_t*)jxlRGBAPixels:(nonnull size_t*)bufferSize width:(nonnull int*)xSize height:(nonnull int*)ySize {
+- (bool)jxlRGBAPixels:(std::vector<uint8_t>&)buffer width:(nonnull int*)xSize height:(nonnull int*)ySize {
     CGImageRef imageRef = [self CGImage];
     NSUInteger width = CGImageGetWidth(imageRef);
     NSUInteger height = CGImageGetHeight(imageRef);
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    unsigned char *rawData = (unsigned char*) malloc(height * width * 4 * sizeof(uint8_t));
-    *bufferSize = height * width * 4 * sizeof(uint8_t);
+    buffer.resize(height * width * 4 * sizeof(uint8_t));
     *xSize = (int)width;
     *ySize = (int)height;
     NSUInteger bytesPerPixel = 4;
     NSUInteger bytesPerRow = bytesPerPixel * width;
     NSUInteger bitsPerComponent = 8;
-    CGContextRef context = CGBitmapContextCreate(rawData, width, height,
+    CGContextRef context = CGBitmapContextCreate(buffer.data(), width, height,
                                                  bitsPerComponent, bytesPerRow, colorSpace,
                                                  (int)kCGImageAlphaPremultipliedLast | (int)kCGImageByteOrderDefault);
 
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef);
 
-    if (![self unpremultiply:rawData width:width height:height]) {
-        free(rawData);
-        return nil;
+    if (![self unpremultiply:buffer.data() width:width height:height]) {
+        return false;
     }
 
-    return rawData;
+    return true;
 }
 #endif
 @end
