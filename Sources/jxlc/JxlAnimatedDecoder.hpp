@@ -76,6 +76,11 @@ public:
             std::string str = "Cannot create decoder";
             throw AnimatedDecoderError(str);
         }
+        
+        if (JXL_DEC_SUCCESS != JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE)) {
+            return false;
+        }
+        
         if (JXL_DEC_SUCCESS !=
             JxlDecoderSubscribeEvents(dec.get(), JXL_DEC_BASIC_INFO |
                                                  JXL_DEC_COLOR_ENCODING |
@@ -146,18 +151,18 @@ public:
                 }
             } else if (status == JXL_DEC_COLOR_ENCODING) {
                 size_t iccSize;
-                if (JXL_DEC_SUCCESS !=
-                    JxlDecoderGetICCProfileSize(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
-                                                &iccSize)) {
-                    std::string str = "Cannot retreive color info";
-                    throw AnimatedDecoderError(str);
+                if (JXL_DEC_SUCCESS ==
+                    JxlDecoderGetICCProfileSize(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &iccSize)) {
+                    iccProfile.resize(iccSize);
+                    if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsICCProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
+                                                                          iccProfile.data(), iccProfile.size())) {
+                        std::string str = "Cannot retreive color icc profile";
+                        throw AnimatedDecoderError(str);
+                    }
+                } else {
+                    iccProfile.resize(0);
                 }
                 iccProfile.resize(iccSize);
-                if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsICCProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
-                                                                      iccProfile.data(), iccProfile.size())) {
-                    std::string str = "Cannot retreive color icc profile";
-                    throw AnimatedDecoderError(str);
-                }
             } else if (status == JXL_DEC_SUCCESS) {
                 JxlDecoderRewind(dec.get());
                 JxlDecoderSubscribeEvents(dec.get(), JXL_DEC_FRAME | JXL_DEC_FULL_IMAGE);

@@ -58,8 +58,10 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
                                                        runner.get())) {
         return false;
     }
-
-    JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE);
+    
+    if (JXL_DEC_SUCCESS != JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE)) {
+        return false;
+    }
 
     JxlBasicInfo info;
     JxlPixelFormat format;
@@ -95,10 +97,6 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             bitDepth = info.bits_per_sample;
             *depth = info.bits_per_sample;
             int baseComponents = info.num_color_channels;
-            // Will not support mono
-            if (baseComponents < 3) {
-                baseComponents = 3;
-            }
             if (info.num_extra_channels > 0) {
                 baseComponents = 4;
             }
@@ -129,19 +127,18 @@ bool DecodeJpegXlOneShot(const uint8_t *jxl, size_t size,
             //            if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsEncodedProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &colorEncoding)) {
             //                return false;
             //            }
-
-            size_t icc_size;
-            if (JXL_DEC_SUCCESS !=
-                JxlDecoderGetICCProfileSize(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
-                                            &icc_size)) {
-                return false;
+            
+            size_t iccSize;
+            if (JXL_DEC_SUCCESS ==
+                JxlDecoderGetICCProfileSize(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA, &iccSize)) {
+                iccProfile->resize(iccSize);
+                if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsICCProfile(dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
+                                                                      iccProfile->data(), iccProfile->size())) {
+                                                                          return false;
+                                                                      }
+            } else {
+                iccProfile->resize(0);
             }
-            iccProfile->resize(icc_size);
-            if (JXL_DEC_SUCCESS != JxlDecoderGetColorAsICCProfile(
-                                                                  dec.get(), JXL_COLOR_PROFILE_TARGET_DATA,
-                                                                  iccProfile->data(), iccProfile->size())) {
-                                                                      return false;
-                                                                  }
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             size_t buffer_size;
             if (JXL_DEC_SUCCESS !=

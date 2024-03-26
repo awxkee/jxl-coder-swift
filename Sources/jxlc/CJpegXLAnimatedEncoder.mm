@@ -53,6 +53,7 @@ public:
                quality:(int)quality 
          decodingSpeed:(JXLEncoderDecodingSpeed)decodingSpeed
                  error:(NSError * _Nullable *_Nullable)error {
+    enc = nullptr;
     JxlPixelType jColorspace;
     JxlCompressionOption jCompressionOption;
 
@@ -106,7 +107,8 @@ public:
         if (enc->getJxlPixelType() == rgb) {
             auto resizedVector = [RgbRgbaConverter convertRGBAtoRGB:buf width:width height:height];
             if (resizedVector.size() == 1) {
-                *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500 userInfo:@{ NSLocalizedDescriptionKey: @"Cannot convert RGBA pixels to RGB" }];
+                *error = [[NSError alloc] initWithDomain:@"JXLCoder" code:500
+                                                userInfo:@{ NSLocalizedDescriptionKey: @"Cannot convert RGBA pixels to RGB" }];
                 return nil;
             }
             buf = resizedVector;

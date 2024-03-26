@@ -327,11 +327,19 @@ static inline float JXLGetDistance(const int quality)
             colorSpace = CGColorSpaceCreateWithICCData(iccData);
             CFRelease(iccData);
         } else {
-            colorSpace = CGColorSpaceCreateDeviceRGB();
+            if (components > 1) {
+                colorSpace = CGColorSpaceCreateDeviceRGB();
+            } else {
+                colorSpace = CGColorSpaceCreateDeviceGray();
+            }
         }
 
         if (!colorSpace) {
-            colorSpace = CGColorSpaceCreateDeviceRGB();
+            if (components > 1) {
+                colorSpace = CGColorSpaceCreateDeviceRGB();
+            } else {
+                colorSpace = CGColorSpaceCreateDeviceGray();
+            }
         }
 
         int stride = components*(int)xSize * (int)(useFloats ? sizeof(uint16_t) : sizeof(uint8_t));

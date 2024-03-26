@@ -1,5 +1,5 @@
 module jxlc {
-    umbrella header "../JxlInternalCoder.h"
+    header "../JxlInternalCoder.h"
     header "../JxlConstruction.h"
     header "../JxlJpegLiEncoder.h"
     export *

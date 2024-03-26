@@ -46,6 +46,7 @@ static void JXLDCGData8ProviderReleaseDataCallback(void *info, const void *data,
 }
 
 -(nullable id)initWith:(nonnull NSData*)data error:(NSError * _Nullable *_Nullable)error {
+    dec = nullptr;
     try {
         const uint8_t* ptr = reinterpret_cast<const uint8_t*>([data bytes]);
         mSrc.resize([data length]);
