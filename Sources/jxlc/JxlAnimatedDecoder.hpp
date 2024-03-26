@@ -78,7 +78,8 @@ public:
         }
         
         if (JXL_DEC_SUCCESS != JxlDecoderSetUnpremultiplyAlpha(dec.get(), JXL_TRUE)) {
-            return false;
+            std::string str = "Cannot initialize decoder";
+            throw AnimatedDecoderError(str);
         }
         
         if (JXL_DEC_SUCCESS !=
