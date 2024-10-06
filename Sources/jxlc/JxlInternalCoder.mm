@@ -189,7 +189,6 @@ static inline float JXLGetDistance(const int quality)
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
                             rescale:(CGSize)rescale
                         pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
-                            sampler:(JxlSampler)sampler
                               scale:(int)scale
                               error:(NSError *_Nullable * _Nullable)error {
     try {
@@ -276,41 +275,9 @@ static inline float JXLGetDistance(const int quality)
         }
 
         if (rescale.width > 0 && rescale.height > 0) {
-            XSampler xSampler = bilinear;
-
-            switch (sampler) {
-                case kNearestNeighbor:
-                    xSampler = nearest;
-                    break;
-                case kBilinear:
-                    xSampler = bilinear;
-                    break;
-                case kCubic:
-                    xSampler = cubic;
-                    break;
-                case kMitchell:
-                    xSampler = mitchell;
-                    break;
-                case kLanczos:
-                    xSampler = lanczos;
-                    break;
-                case kCatmullRom:
-                    xSampler = catmullRom;
-                    break;
-                case kHermite:
-                    xSampler = hermite;
-                    break;
-                case kBSpline:
-                    xSampler = bSpline;
-                    break;
-                case kHann:
-                    xSampler = hann;
-                    break;
-            }
-
             auto scaleResult = [RgbaScaler scaleData:outputData width:(int)xSize height:(int)ySize
                                             newWidth:(int)rescale.width newHeight:(int)rescale.height
-                                          components:components pixelFormat:useFloats ? kF16 : kU8 sampler:xSampler];
+                                          components:components pixelFormat:useFloats ? kF16 : kU8];
             if (!scaleResult) {
                 *error = [[NSError alloc] initWithDomain:@"JXLCoder" 
                                                     code:500

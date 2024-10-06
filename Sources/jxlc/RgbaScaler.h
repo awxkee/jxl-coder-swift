@@ -29,7 +29,6 @@
 #ifdef __cplusplus
 
 #import <vector>
-#import "XScaler.hpp"
 
 typedef NS_ENUM(NSInteger, JxlIPixelFormat)  {
     kU8 NS_SWIFT_NAME(uniform8),
@@ -47,7 +46,7 @@ typedef NS_ENUM(NSInteger, JxlIPixelFormat)  {
  * @param pixelFormat Pixel Format of the image
  * @return destination
  */
-+(bool) scaleData:(std::vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat sampler:(XSampler)sampler;
++(bool) scaleData:(std::vector<uint8_t>&)src width:(int)width height:(int)height newWidth:(int)newWidth newHeight:(int)newHeight components:(int)components pixelFormat:(JxlIPixelFormat)pixelFormat;
 @end
 
 #endif

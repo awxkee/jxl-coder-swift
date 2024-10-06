@@ -59,18 +59,6 @@ typedef NS_ENUM(NSInteger, JXLPreferredPixelFormat) {
     kFloat16 NS_SWIFT_NAME(float16),
 };
 
-typedef NS_ENUM(NSInteger, JxlSampler)  {
-    kNearestNeighbor NS_SWIFT_NAME(nearestNeighbor),
-    kBilinear NS_SWIFT_NAME(bilinear),
-    kCubic NS_SWIFT_NAME(cubic),
-    kBSpline NS_SWIFT_NAME(bSpline),
-    kMitchell NS_SWIFT_NAME(mitchell),
-    kLanczos NS_SWIFT_NAME(lanczos),
-    kCatmullRom NS_SWIFT_NAME(catmullRom),
-    kHermite NS_SWIFT_NAME(hermite),
-    kHann NS_SWIFT_NAME(hann)
-};
-
 typedef NS_ENUM(NSInteger, JXLEncoderDecodingSpeed)  {
     kSlowest NS_SWIFT_NAME(slowest) = 0,
     kSlow NS_SWIFT_NAME(slow) = 1,

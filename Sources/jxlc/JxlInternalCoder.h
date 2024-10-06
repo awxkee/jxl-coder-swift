@@ -35,7 +35,6 @@
 - (nullable JXLSystemImage *)decode:(nonnull NSInputStream *)inputStream
                              rescale:(CGSize)rescale
                              pixelFormat:(JXLPreferredPixelFormat)preferredPixelFormat
-                             sampler:(JxlSampler)sampler
                              scale:(int)scale
                              error:(NSError *_Nullable * _Nullable)error;
 - (CGSize)getSize:(nonnull NSInputStream *)inputStream error:(NSError *_Nullable * _Nullable)error;
