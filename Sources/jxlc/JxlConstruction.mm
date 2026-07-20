@@ -106,10 +106,8 @@ class OutputBuffer {
 };
 
 NSInteger DefaultThreadCount() {
-  static const NSInteger processorCount = std::max<NSInteger>(
-      1,
-      NSProcessInfo.processInfo.activeProcessorCount
-  );
+  static const NSInteger processorCount = std::clamp<NSInteger>(
+      NSProcessInfo.processInfo.activeProcessorCount, 1, kMaximumThreadCount);
   return processorCount;
 }
 

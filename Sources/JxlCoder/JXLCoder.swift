@@ -30,7 +30,10 @@ import jxlc
 
 public class JXLCoder {
     private static let shared = JxlInternalCoder()
-    private static let processorCount = max(1, ProcessInfo.processInfo.activeProcessorCount)
+    private static let processorCount = min(
+        256,
+        max(1, ProcessInfo.processInfo.activeProcessorCount)
+    )
     private static let magic1 = Data([0xFF, 0x0A])
     private static let magic2 = Data([0x0, 0x0, 0x0, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A])
 
@@ -110,7 +113,17 @@ public class JXLCoder {
     }
     
     /**
-     Losslessly recompresses JPEG data as JPEG XL.
+     Losslessly recompresses JPEG data as JPEG XL using the default options.
+
+     - Parameter jpegData: Data that contains a JPEG image.
+     - Returns: JPEG XL data containing reconstructable JPEG metadata.
+     */
+    public static func transcode(jpegData: Data) throws -> Data {
+        return try transcode(jpegData: jpegData, effort: 7, threads: 0)
+    }
+
+    /**
+     Losslessly recompresses JPEG data as JPEG XL with explicit options.
 
      - Parameters:
        - jpegData: Data that contains a JPEG image.
@@ -122,7 +135,7 @@ public class JXLCoder {
      */
     public static func transcode(
         jpegData: Data,
-        effort: Int = 7,
+        effort: Int,
         threads: Int = 0
     ) throws -> Data {
         return try JxlConstruction.transcode(
@@ -133,7 +146,17 @@ public class JXLCoder {
     }
 
     /**
-     Reconstructs the original JPEG from losslessly transcoded JPEG XL data.
+     Reconstructs the original JPEG using the default worker count.
+
+     - Parameter jxlData: Data containing a reconstructable JPEG XL image.
+     - Returns: The byte-for-byte reconstructed JPEG data.
+     */
+    public static func inverse(jxlData: Data) throws -> Data {
+        return try inverse(jxlData: jxlData, threads: 0)
+    }
+
+    /**
+     Reconstructs the original JPEG with an explicit worker count.
 
      - Parameters:
        - jxlData: Data containing a reconstructable JPEG XL image.
@@ -141,7 +164,7 @@ public class JXLCoder {
          active processor count.
      - Returns: The byte-for-byte reconstructed JPEG data.
      */
-    public static func inverse(jxlData: Data, threads: Int = 0) throws -> Data {
+    public static func inverse(jxlData: Data, threads: Int) throws -> Data {
         return try JxlConstruction.inverse(
             jxlData,
             threads: resolvedThreads(threads)

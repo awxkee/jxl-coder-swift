@@ -83,8 +83,9 @@ let reconstructed = try JXLCoder.inverse(
 
 JPEG transcoding preserves the original JPEG bit-for-bit. `effort` accepts
 values from 1 through 9. `threads` accepts 1 through 256, or 0 to use the
-active processor count. Both options have defaults, so existing
-`transcode(jpegData:)` and `inverse(jxlData:)` calls remain valid.
+active processor count. The original `transcode(jpegData:)` and
+`inverse(jxlData:)` methods remain available with effort 7 and automatic
+worker selection.
 
 ## Jpegli encoding
 
