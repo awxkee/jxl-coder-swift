@@ -67,12 +67,24 @@ try! animEncoder.add(frame: frameToAnimate, duration: 150)
 let animationJxlData = try! animEncoder.finish()
 ```
 
-## Loseless JPEG transcoding
+## Lossless JPEG transcoding
 
 ```swift
-let transcoded = try! JXLCoder.transcode(jpegData: Data())
-let jpegData: Data = try! JXLCoder.inverse(jxlData: Data())
+let transcoded = try JXLCoder.transcode(
+    jpegData: jpegData,
+    effort: 7,
+    threads: 0
+)
+let reconstructed = try JXLCoder.inverse(
+    jxlData: transcoded,
+    threads: 0
+)
 ```
+
+JPEG transcoding preserves the original JPEG bit-for-bit. `effort` accepts
+values from 1 through 9. `threads` accepts 1 through 256, or 0 to use the
+active processor count. Both options have defaults, so existing
+`transcode(jpegData:)` and `inverse(jxlData:)` calls remain valid.
 
 ## Jpegli encoding
 

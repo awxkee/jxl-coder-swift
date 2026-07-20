@@ -28,6 +28,9 @@ let package = Package(
                 linkerSettings: [
                     .linkedFramework("Accelerate")
                 ]),
+        .testTarget(
+            name: "JxlCoderTests",
+            dependencies: ["JxlCoder"]),
         .binaryTarget(name: "libbrotlicommon", path: "Sources/Frameworks/libbrotlicommon.xcframework"),
         .binaryTarget(name: "libbrotlidec", path: "Sources/Frameworks/libbrotlidec.xcframework"),
         .binaryTarget(name: "libbrotlienc", path: "Sources/Frameworks/libbrotlienc.xcframework"),
