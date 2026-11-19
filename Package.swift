@@ -16,6 +16,10 @@ let package = Package(
             name: "JxlCoder",
             dependencies: ["JxlRust"],
             path: "Sources/JxlCoder"),
-        .binaryTarget(name: "JxlRust", path: "Sources/Frameworks/JxlRust.xcframework")
+        .binaryTarget(
+            name: "JxlRust",
+            url: "https://github.com/awxkee/jxl-coder-swift/releases/download/2.0.1/JxlRust.xcframework.zip",
+            checksum: "477d874097779e6387091ee40941eeb970d62a783689192c8a8d1056b453090e"
+        )
     ]
 )
