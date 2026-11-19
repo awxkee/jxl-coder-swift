@@ -1,5 +1,0 @@
-framework module JxlCoder {
-    umbrella header "JXLCoder.h"
-    export *
-    module * { export * }
-}

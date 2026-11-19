@@ -1,6 +1,0 @@
-module jxlc {
-    header "../JxlInternalCoder.h"
-    header "../JxlConstruction.h"
-    header "../JxlJpegLiEncoder.h"
-    export *
-}

@@ -90,3 +90,8 @@ fastlane/test_output
 iOSInjectionProject/
 .idea
 vendor
+
+/Rust/target/
+/Sources/Frameworks/
+JxlRust.xcframework.zip
+JxlCoder-CocoaPods.zip

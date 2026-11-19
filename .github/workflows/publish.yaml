@@ -1,0 +1,87 @@
+name: Publish JxlCoder
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New package version (X.Y.Z, without a v prefix)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  package:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      JXL_RUST_TOOLCHAIN: nightly-2026-11-01
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release source
+        shell: bash
+        run: |
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Expected a version like 2.0.0." >&2
+            exit 1
+          fi
+          if [[ -n "$(git ls-files -- Sources/Frameworks Rust/target)" ]]; then
+            echo "Remove generated frameworks and Cargo output from Git before publishing." >&2
+            exit 1
+          fi
+
+      - name: Install Rust and build the XCFramework
+        run: |
+          rustup toolchain install "$JXL_RUST_TOOLCHAIN" --profile minimal --component llvm-tools \
+            --target aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+          ./scripts/build-rust-xcframework.sh
+
+      - name: Verify the Swift package
+        run: |
+          swift build --scratch-path "$RUNNER_TEMP/swift-build"
+          swift build --scratch-path "$RUNNER_TEMP/swift-build" \
+            --triple arm64-apple-ios13.0 --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
+          swift build --scratch-path "$RUNNER_TEMP/swift-build" \
+            --triple arm64-apple-ios13.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
+
+      - name: Prepare archives and package metadata
+        run: ./scripts/package-release.sh "$VERSION" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/release"
+
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: jxlcoder-release-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
+          path: ${{ runner.temp }}/release
+
+      - name: Attach archives and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/publish-release.sh "$VERSION" "$RUNNER_TEMP/release"

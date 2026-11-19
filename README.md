@@ -1,27 +1,18 @@
 # JxlCoder
 
-## What's This?
-This package is provides support for Jpeg XL images for all apple platforms.
-Supports encode JXL ( Jpeg XL ) on iOS, MacOS and decode JXL ( Jpeg XL ) images in convinient and fast way for the single image and animation.
-
-A package to decode Jpeg XL on iOS, MacOS or encode JXL images. Also provider JXL support on iOS for Nuke and SDWebImage. Have support for older versions of iOS, MacOSX and all the simulators that doesn't have support Jpeg XL images. Also support Objective C interoping for old projects via Cocoapods
-
-Supported ICC Profiles and HDR images. Also supports animated JPEG XL images decoding and encoding.
-Contains integration for SDWebImage to decode single image and animated Jpeg XL images.
-
-Package based on `libjxl`
-</br>
-Main aim of the project is to use `JXL` image on all Apple platforms etc with usable speed and convenience
-
-Precompiled to serve JXL (Jpeg XL) on iOS 11+, Mac OS 11+
+JPEG XL for iOS 13+ and macOS 12+, including Apple silicon and Intel simulators.
+The Rust codec uses jxl-rs for still and animated decoding, jixel for still encoding
+and lossless JPEG transcoding, and pic-scale for resizing. It supports ICC and CICP
+color, ISO 21496-1 gain maps, and HDR output. Integrations for Nuke and
+SDWebImage are included in this repository.
 
 ## Installation
 
 ### [Swift Package Manager](https://swift.org/package-manager/)
 
 Go to `File / Swift Packages / Add Package Dependency…`
-and enter package repository URL https://github.com/awxkee/jxl-coder-swift, then select the latest master branch
-at the time of writing.
+and enter `https://github.com/awxkee/jxl-coder-swift`. Select a released version
+to have SwiftPM download and verify its prebuilt XCFramework.
 
 ### CocoaPods
 
@@ -36,49 +27,107 @@ to your Podfile and then
 pod install
 ```
 
-## Usage
+## Still images
 
 ```swift
 import JxlCoder
-// Decompress data
-let uiImage: UIImage = try JXLCoder.decode(data: Data()) // or any max CGSize of image
-// Compress
-let data: Data = try JXLCoder.encode(data: UIImage())
+
+let image = try JXLCoder.decode(data: jxlData)
+let encoded = try JXLCoder.encode(image: image, colorSpace: .rgba, effort: .fast)
+let info = try JXLCoder.info(data: encoded)
 ```
 
-## Usage for animations
-```swift
-// Decoding
-let decoder = try! JXLAnimatedDecoder(data: animationJxlData)
-let framesCount = Int(decoder.numberOfFrames)
-print("frames count \(framesCount)")
-let duration = decoder.frameDuration(currentFrame)
-let frame: UIImage = try! decoder.get(frame: currentFrame)
+Use `encodeRGBA` to supply native-endian integer or Float32 samples with explicit
+CICP or ICC. CICP describes the supplied RGB samples. Use identity matrix (0) and
+full range. When supplied, an ICC profile takes precedence and is preserved as-is.
+For platform images, the wrapper uses the image's named color space or its ICC
+profile. Lossy quality 0 selects the encoder default. Lossless Float32 encoding
+requires nonnegative RGB samples.
 
-// Encoding
-let animEncoder = try! JXLAnimatedEncoder(width: frameToAnimate.size.width,
-                                         height: frameToAnimate.size.height)
-try! animEncoder.add(frame: frameToAnimate, duration: 150) // duration is in ms
-try! animEncoder.add(frame: frameToAnimate, duration: 150)
-try! animEncoder.add(frame: frameToAnimate, duration: 150)
-try! animEncoder.add(frame: frameToAnimate, duration: 150)
-try! animEncoder.add(frame: frameToAnimate, duration: 150)
-// etc and then finish the encoding
-let animationJxlData = try! animEncoder.finish()
-```
+Encoding and JPEG transcoding accept `JXLEncoderEffort`. The presets run from
+fastest to slowest as `.ultraFast`, `.fastest`, `.fast`, `.medium`, `.mediumSlow`,
+and `.slow`. The default is `.mediumSlow`.
 
-## Loseless JPEG transcoding
+For lossless still-image encoding, `decodingSpeed` selects `.slow`, `.fast`,
+or `.fastest`. The default is `.slow`.
+
+## Gain maps and HDR display
+
+Create a `JXLGainMap` from packed gray or RGB samples and the ISO 21496-1 metadata.
+Pass it to `encode` or `encodeRGBA`. The map can have a different resolution from
+the base. You can also extract a map from an existing JPEG XL file.
 
 ```swift
-let transcoded = try! JXLCoder.transcode(jpegData: Data())
-let jpegData: Data = try! JXLCoder.inverse(jxlData: Data())
+let map = JXLGainMap(
+    samples: gainSamples, width: gainWidth, height: gainHeight, channels: 1,
+    metadata: JXLGainMapMetadata(
+        min: .zero, max: SIMD3(repeating: 2), alternateHeadroom: 2
+    ),
+    alternateCICP: .displayP3
+)
+let encoded = try JXLCoder.encode(image: baseImage, colorSpace: .rgba, gainMap: map)
+let embedded = try JXLCoder.gainMap(data: encoded)
 ```
 
-## Jpegli encoding
+Pass the destination screen's headroom to `decode` or `decodeCGImage`.
+The value is an HDR/SDR luminance ratio, with 1 representing SDR.
+Omit it to decode the base rendition. When applying the gain map, the codec
+returns extended linear Display P3 with half-float components. On iOS 17+,
+set the image view's preferred range to `.high` for full HDR display.
+[Apple's HDR image display guide](https://developer.apple.com/documentation/UIKit/supporting-hdr-images-in-your-app)
 
 ```swift
-let encoded: Data = try! JpegLiEncoder.encode(image: UIImage())
+// UIKit, on iOS 17 or later, with an image view attached to a window.
+let headroom = max(1, Float(imageView.window?.screen.currentEDRHeadroom ?? 1))
+imageView.preferredImageDynamicRange = .high
+imageView.image = try JXLCoder.decode(data: encoded, displayHeadroom: headroom)
 ```
+
+## Animation decoding
+
+```swift
+let decoder = try JXLAnimatedDecoder(data: animationJxlData)
+let frameCount = decoder.numberOfFrames
+let duration = decoder.frameDuration(currentFrame) // Milliseconds
+let frame = try decoder.get(frame: currentFrame)
+```
+
+## Lossless JPEG transcoding
+
+```swift
+let transcoded = try JXLCoder.transcode(jpegData: originalJPEG, effort: .medium)
+```
+
+Transcoding keeps the JPEG coefficients and carries over Ultra HDR gain maps with
+binary ISO 21496-1 metadata.
+
+## Building the Rust codec
+
+When working from a source branch, build the Rust XCFramework locally before
+opening the demo or building with SwiftPM. The framework is ignored by Git.
+
+```sh
+rustup toolchain install nightly-2026-11-01 --profile minimal --component llvm-tools \
+  --target aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+./scripts/build-rust-xcframework.sh
+cargo +nightly-2026-11-01 test --locked --manifest-path Rust/Cargo.toml
+```
+
+The Rust library and its dependency notices are in [Rust](Rust). The native
+Apple bridge is defined in [JxlRust.h](Sources/JxlRust/include/JxlRust.h).
+
+## Publishing a release
+
+Once the workflow is on the default branch, run **Publish JxlCoder** in GitHub
+Actions. Select the branch to release and enter a new version in `X.Y.Z` format.
+The workflow builds the framework, uploads the SwiftPM and CocoaPods ZIPs to a
+draft GitHub Release, and publishes a tag with the corresponding download URLs
+and checksums. The development branch keeps its local build configuration.
+
+If publishing fails after the archives are built, rerun the failed job to reuse
+the same archives. For CocoaPods Trunk distribution, submit the podspec from the
+published tag. GitLab and Codeberg pick up the new tag on the next regular
+push to `main`.
 
 ## Nuke Plugin
 
@@ -171,6 +220,13 @@ SDImageCodersManager.shared.addCoder(JxlAnimatedSDWebImageCoder())
 ```
 
 Currently, JXL nuke plugin do not support animated JXLs so you have to do it yourself
+
+## License
+
+The JxlCoder Swift package, Rust crate, and Swift integrations are available under
+[BSD 3-Clause](LICENSE) or [Apache 2.0](LICENSE-APACHE), at your option. BSD
+3-Clause is the primary license. The Rust XCFramework includes both license
+texts and the [third-party notices](Rust/THIRD-PARTY-NOTICES.txt).
 
 ## Disclaimer
 The JPEG XL call for proposals talks about the requirement of a next generation image compression standard with substantially better compression efficiency (60% improvement) comparing to JPEG. The standard is expected to outperform the still image compression performance shown by HEIC, AVIF, WebP, and JPEG 2000. It also provides efficient lossless recompression options for images in the traditional/legacy JPEG format.
