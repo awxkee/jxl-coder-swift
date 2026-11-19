@@ -47,7 +47,12 @@ xcrun lipo -create \
     "$stage/x86_64-apple-darwin.a" \
     -output "$stage/macos/libjxl_rust.a"
 
-headers="$root/Sources/JxlRust/include"
+# Xcode copies the headers of every static-library XCFramework into one shared
+# include/ folder, so a top-level module.modulemap collides with other packages
+# that do the same (e.g. AvifPixart). Keep ours in Headers/JxlRust/.
+headers="$stage/headers"
+mkdir -p "$headers/JxlRust"
+cp "$root/Sources/JxlRust/include/JxlRust.h" "$root/Sources/JxlRust/include/module.modulemap" "$headers/JxlRust/"
 xcodebuild -create-xcframework \
     -library "$stage/ios/libjxl_rust.a" -headers "$headers" \
     -library "$stage/simulator/libjxl_rust.a" -headers "$headers" \
