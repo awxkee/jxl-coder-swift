@@ -1,12 +1,12 @@
 Pod::Spec.new do |s|
     s.name             = 'JxlCoder'
-    s.version          = '2.0.0'
+    s.version          = '2.0.2'
     s.summary          = 'JXL coder for iOS and MacOS'
     s.description      = 'Provides support for JXL files in iOS and MacOS'
     s.homepage         = 'https://github.com/awxkee/jxl-coder-swift'
     s.license          = { :type => 'BSD-3-Clause OR Apache-2.0', :file => 'LICENSE' }
     s.author           = { 'username' => 'radzivon.bartoshyk@proton.me' }
-    s.source           = { :git => 'https://github.com/awxkee/jxl-coder-swift.git', :tag => "#{s.version}" }
+    s.source           = { :http => 'https://github.com/awxkee/jxl-coder-swift/releases/download/2.0.2/JxlCoder-CocoaPods.zip', :sha256 => 'bd76d70e05202331f5eff3e0db3db645e159e733614ca7aeddd373881eaa8a9e' }
     s.ios.deployment_target = '13.0'
     s.osx.deployment_target = '12.0'
     s.source_files = 'Sources/JxlCoder/*.swift'
