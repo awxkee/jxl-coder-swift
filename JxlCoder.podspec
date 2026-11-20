@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
     s.osx.deployment_target = '12.0'
     s.source_files = 'Sources/JxlCoder/*.swift'
     s.swift_versions = ['5.5', '5.6']
-    s.frameworks = "Foundation", "CoreGraphics"
+    s.frameworks = "Foundation", "CoreGraphics", "CoreImage", "ImageIO"
     s.vendored_frameworks = 'Sources/Frameworks/JxlRust.xcframework'
     s.preserve_paths = 'LICENSE-APACHE'
     s.requires_arc = true

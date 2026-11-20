@@ -39,6 +39,7 @@ typedef struct {
     uint8_t format;
     bool has_alpha, has_cicp;
     JRCicp cicp;
+    bool has_embedded_icc;
 } JRImageView;
 
 typedef struct {

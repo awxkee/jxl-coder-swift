@@ -44,3 +44,6 @@ pub mod decode;
 pub mod encode;
 mod ffi;
 pub mod gainmap;
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
+mod neon;
+mod premultiply;

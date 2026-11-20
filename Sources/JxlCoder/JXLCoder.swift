@@ -74,12 +74,34 @@ public class JXLCoder {
             width = w
             height = h
         }
-        if let displayHeadroom = displayHeadroom, !displayHeadroom.isFinite || displayHeadroom < 1 {
-            throw JXLCoderError.invalidInput
+        var headroom: Float = 0
+        if let displayHeadroom = displayHeadroom {
+            guard displayHeadroom.isFinite, displayHeadroom >= 1 else { throw JXLCoderError.invalidInput }
+            headroom = displayHeadroom
         }
+
+        #if compiler(>=6.0)
+        if #available(iOS 18.0, macOS 15.0, *), width == 0, headroom > 1,
+           case let .success(map) = Result(catching: { try gainMap(bytes) }) {
+            if let map = map {
+                if map.metadata.baseHeadroom == 0, map.metadata.useBaseColorSpace,
+                   let base = try? decodeBitmap(bytes, pixelFormat: .r16, width: 0, height: 0, headroom: 0),
+                   let image = JXLNativeGainMap.apply(map, to: base, headroom: headroom) {
+                    return image
+                }
+            } else {
+                headroom = 0
+            }
+        }
+        #endif
+        return try decodeBitmap(bytes, pixelFormat: pixelFormat, width: width, height: height, headroom: headroom)
+    }
+
+    private static func decodeBitmap(
+        _ bytes: JRBytes, pixelFormat: JXLPreferredPixelFormat, width: Int, height: Int, headroom: Float
+    ) throws -> CGImage {
         var output: OpaquePointer?
-        try JXLRustBridge.check(
-            jr_decode(bytes, pixelFormat.rustValue, width, height, displayHeadroom ?? 0, &output))
+        try JXLRustBridge.check(jr_decode(bytes, pixelFormat.rustValue, width, height, headroom, &output))
         return try JXLRustBridge.bitmap(output)
     }
 
@@ -184,17 +206,19 @@ public class JXLCoder {
     }
 
     public static func gainMap(data: Data) throws -> JXLGainMap? {
-        try data.withJXLBytes { bytes in
-            var output = JRGainOutput()
-            let status = jr_gain_map(bytes, &output)
-            if status == JXLCoderError.missingGainMap.rawValue { return nil }
-            try JXLRustBridge.check(status)
-            let icc = JXLRustBridge.takeData(output.alternate_icc)
-            return JXLGainMap(samples: JXLRustBridge.takeData(output.pixels), width: output.width,
-                              height: output.height, channels: output.channels, bitsPerComponent: output.format,
-                              metadata: JXLGainMapMetadata(output.metadata), alternateICC: icc.isEmpty ? nil : icc,
-                              alternateCICP: output.has_alternate_cicp ? JXLCICP(output.alternate_cicp) : nil)
-        }
+        try data.withJXLBytes(gainMap)
+    }
+
+    private static func gainMap(_ bytes: JRBytes) throws -> JXLGainMap? {
+        var output = JRGainOutput()
+        let status = jr_gain_map(bytes, &output)
+        if status == JXLCoderError.missingGainMap.rawValue { return nil }
+        try JXLRustBridge.check(status)
+        let icc = JXLRustBridge.takeData(output.alternate_icc)
+        return JXLGainMap(samples: JXLRustBridge.takeData(output.pixels), width: output.width,
+                          height: output.height, channels: output.channels, bitsPerComponent: output.format,
+                          metadata: JXLGainMapMetadata(output.metadata), alternateICC: icc.isEmpty ? nil : icc,
+                          alternateCICP: output.has_alternate_cicp ? JXLCICP(output.alternate_cicp) : nil)
     }
 
     /// Losslessly transcodes JPEG coefficients and carries over binary ISO Ultra HDR gain maps.
