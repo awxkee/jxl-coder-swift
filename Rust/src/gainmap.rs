@@ -4,7 +4,6 @@
 use crate::decode::{self, Image, Pixels};
 use crate::encode::{Cicp, encode_error};
 use crate::{Error, Result};
-use gainforge::TransferFunction;
 use jixel::{GainMap, GainMapFloats, IsoGainMap};
 use jxl::api::{Event, JxlAuxBoxType, JxlColorProfile, JxlDecoder, JxlSignature, check_signature};
 use moxcms::{
@@ -14,7 +13,11 @@ use moxcms::{
 use pic_scale::{ImageStore, ImageStoreMut, PicScaleError, ResamplingFunction, Scaler};
 use std::borrow::Cow;
 
+mod transfer;
+use transfer::HdrTransfer;
+
 const SDR_WHITE_NITS: f32 = 203.0;
+const GAIN_LUT_LEN: usize = u16::MAX as usize + 1;
 static  LINEAR_DISPLAY_P3: [u8; 4] = [12, 8, 0, 1];
 
 /// ISO 21496-1 parameters. Gain bounds and headrooms are in log2 units.
@@ -103,17 +106,115 @@ impl GainMapMetadata {
         Ok(iso)
     }
 
-    fn weight(self, headroom: f32) -> f32 {
+    fn headroom_and_weight(self, headroom_ratio: f32) -> (f32, f32) {
+        let headroom = headroom_ratio.log2().clamp(
+            self.base_headroom.min(self.alternate_headroom),
+            self.base_headroom.max(self.alternate_headroom),
+        );
         let range = self.alternate_headroom - self.base_headroom;
-        ((headroom - self.base_headroom) / range).clamp(0.0, 1.0) * range.signum()
+        let weight = ((headroom - self.base_headroom) / range).clamp(0.0, 1.0) * range.signum();
+        (headroom, weight)
     }
 
-    fn apply(self, pixel: &mut [f32], gain: &[u16], inverse_gamma: [f32; 3], weight: f32) {
-        for c in 0..3 {
-            let sample = (f32::from(gain[c]) / f32::from(u16::MAX)).powf(inverse_gamma[c]);
-            let log_gain = self.min[c] + (self.max[c] - self.min[c]) * sample;
-            pixel[c] = (pixel[c] + self.base_offset[c]) * (log_gain * weight).exp2()
-                - self.alternate_offset[c];
+    pub(crate) fn applies_at(self, headroom_ratio: f32) -> bool {
+        let (_, weight) = self.headroom_and_weight(headroom_ratio);
+        weight != 0.0
+    }
+}
+
+#[derive(Default)]
+struct GainCurveLut {
+    factors: Vec<f32>,
+    index_mask: u16,
+}
+
+impl GainCurveLut {
+    fn new(
+        [min, max, gamma]: [f32; 3],
+        weight: f32,
+        used_codes: Option<impl Iterator<Item = u16>>,
+    ) -> Result<Self> {
+        let mut factors = Vec::new();
+        if min == max {
+            factors.try_reserve_exact(1)?;
+            factors.push((min * weight).exp2());
+            return Ok(Self { factors, index_mask: 0 });
+        }
+
+        let inverse_gamma = gamma.recip();
+        factors.try_reserve_exact(GAIN_LUT_LEN)?;
+        let factor = |code| {
+            let sample = f32::from(code) / f32::from(u16::MAX);
+            let sample = if inverse_gamma == 1.0 {
+                sample
+            } else {
+                sample.powf(inverse_gamma)
+            };
+            let log_gain = min + (max - min) * sample;
+            (log_gain * weight).exp2()
+        };
+        // Index the original 16-bit samples so resampled maps retain their precision.
+        if let Some(codes) = used_codes {
+            factors.resize(GAIN_LUT_LEN, f32::NAN);
+            for code in codes {
+                let entry = &mut factors[usize::from(code)];
+                if entry.is_nan() {
+                    *entry = factor(code);
+                }
+            }
+        } else {
+            factors.extend((0..=u16::MAX).map(factor));
+        }
+        Ok(Self {
+            factors,
+            index_mask: u16::MAX,
+        })
+    }
+
+    #[inline]
+    fn factor(&self, code: u16) -> f32 {
+        self.factors[usize::from(code & self.index_mask)]
+    }
+}
+
+struct GainMapLut {
+    tables: [GainCurveLut; 3],
+    channel_indices: [usize; 3],
+}
+
+impl GainMapLut {
+    fn new(metadata: GainMapMetadata, weight: f32, gains: &[[u16; 4]]) -> Result<Self> {
+        let curves: [[f32; 3]; 3] =
+            std::array::from_fn(|c| [metadata.min[c], metadata.max[c], metadata.gamma[c]]);
+        let mut tables = std::array::from_fn(|_| GainCurveLut::default());
+        let mut channel_indices = [0, 1, 2];
+        for channel in 0..3 {
+            let curve = curves[channel];
+            if let Some(index) = curves[..channel].iter().position(|&previous| previous == curve) {
+                channel_indices[channel] = index;
+            } else {
+                // Small images need only the codes used by this curve, including shared channels.
+                let used_codes = (gains.len() <= GAIN_LUT_LEN / 3).then(|| {
+                    (channel..3)
+                        .filter(move |&index| curves[index] == curve)
+                        .flat_map(|index| gains.iter().map(move |gain| gain[index]))
+                });
+                tables[channel] = GainCurveLut::new(curve, weight, used_codes)?;
+            }
+        }
+        Ok(Self {
+            tables,
+            channel_indices,
+        })
+    }
+
+    fn apply_row(&self, pixels: &mut [[f32; 4]], gains: &[[u16; 4]], metadata: GainMapMetadata) {
+        let tables = self.channel_indices.map(|index| &self.tables[index]);
+        for (pixel, gain) in pixels.iter_mut().zip(gains) {
+            for c in 0..3 {
+                pixel[c] = (pixel[c] + metadata.base_offset[c]) * tables[c].factor(gain[c])
+                    - metadata.alternate_offset[c];
+            }
         }
     }
 }
@@ -470,81 +571,6 @@ fn display_profile() -> ColorProfile {
     profile
 }
 
-enum HdrTransfer {
-    Pq,
-    Hlg {
-        luma: [f32; 3],
-        peak: f32,
-        gamma: f32,
-    },
-}
-
-impl HdrTransfer {
-    fn new(transfer: Option<u8>, profile: &ColorProfile, intensity: f32) -> Option<Self> {
-        match transfer? {
-            16 => Some(Self::Pq),
-            18 => {
-                // ICC colorants are in PCS D50. Use the native Y row for the HLG OOTF.
-                let to_native = profile.chromatic_adaptation.map(|matrix| matrix.inverse());
-                let mut luma = [
-                    profile.red_colorant,
-                    profile.green_colorant,
-                    profile.blue_colorant,
-                ]
-                .map(|xyz| match to_native {
-                    Some(matrix) => matrix.mul_vector(xyz.to_vector_d()).v[1] as f32,
-                    None => xyz.y as f32,
-                });
-                let sum: f32 = luma.iter().sum();
-                if sum.is_finite() && sum > 0.0 {
-                    luma = luma.map(|value| value / sum);
-                } else {
-                    luma = [0.2627, 0.6780, 0.0593];
-                }
-                let peak = if intensity.is_finite() && intensity > 255.0 {
-                    intensity
-                } else {
-                    1000.0
-                };
-                Some(Self::Hlg {
-                    luma,
-                    peak,
-                    gamma: 1.2 + 0.42 * (peak / 1000.0).log10(),
-                })
-            }
-            _ => None,
-        }
-    }
-
-    fn linearize(&self, rgb: &mut [f32]) {
-        match self {
-            Self::Pq => {
-                for value in rgb {
-                    *value = TransferFunction::PerceptualQuantizer
-                        .linearize(value.clamp(0.0, 1.0), 10000.0 / SDR_WHITE_NITS);
-                }
-            }
-            Self::Hlg { luma, peak, gamma } => {
-                for value in rgb.iter_mut() {
-                    let encoded = value.clamp(0.0, 1.0);
-                    *value = if encoded <= 0.5 {
-                        encoded * encoded / 3.0
-                    } else {
-                        (((encoded - 0.559_910_7) / 0.17883277).exp() + 0.28466892) / 12.0
-                    };
-                }
-                let scene_luma = rgb[0] * luma[0] + rgb[1] * luma[1] + rgb[2] * luma[2];
-                if scene_luma > 0.0 {
-                    let scale = (peak / SDR_WHITE_NITS) * scene_luma.powf(gamma - 1.0);
-                    for value in rgb {
-                        *value *= scale;
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// Reconstruct the rendition appropriate for the display's ratio of HDR peak
 /// luminance to SDR reference white, using extended linear Display P3 output.
 pub fn render(mut base: Image, gain_map: &DecodedGainMap, headroom_ratio: f32) -> Result<Image> {
@@ -559,18 +585,16 @@ pub fn render(mut base: Image, gain_map: &DecodedGainMap, headroom_ratio: f32) -
     }
     let metadata = gain_map.metadata;
     metadata.validate()?;
-    let headroom = headroom_ratio.log2().clamp(
-        metadata.base_headroom.min(metadata.alternate_headroom),
-        metadata.base_headroom.max(metadata.alternate_headroom),
-    );
-    let weight = metadata.weight(headroom);
-    let gains = if weight == 0.0 {
+    let (headroom, weight) = metadata.headroom_and_weight(headroom_ratio);
+    let gain = if weight == 0.0 {
         None
     } else {
-        Some(resize_map(&gain_map.image, base.width, base.height)?)
+        let pixels = resize_map(&gain_map.image, base.width, base.height)?;
+        let lut = GainMapLut::new(metadata, weight, pixels.as_chunks::<4>().0)?;
+        Some((pixels, lut))
     };
     let source = parse_profile(&base.icc)?;
-    let transfer = HdrTransfer::new(base.hdr_transfer, &source, base.intensity_target);
+    let transfer = HdrTransfer::new(base.hdr_transfer, &source, base.intensity_target)?;
     // Direct PQ/HLG EOTFs avoid the SDR tone mapping in fallback HDR ICC LUTs.
     let linear_source;
     let source = if transfer.is_some() {
@@ -615,7 +639,6 @@ pub fn render(mut base: Image, gain_map: &DecodedGainMap, headroom_ratio: f32) -
     let row_len = sample_count(base.width, 1, 4)?;
     let mut input = zeroed::<f32>(row_len)?;
     let mut converted = zeroed::<f32>(row_len)?;
-    let inverse_gamma = metadata.gamma.map(f32::recip);
     let input_channels = if source_layout == Layout::GrayAlpha {
         2
     } else {
@@ -628,23 +651,25 @@ pub fn render(mut base: Image, gain_map: &DecodedGainMap, headroom_ratio: f32) -
             for (encoded, pixel) in input.as_chunks_mut::<2>().0.iter_mut().zip(row.iter()) {
                 *encoded = [pixel[0], pixel[3]].map(|bits| f16::from_bits(bits) as f32);
             }
+        } else if let Some(transfer) = &transfer {
+            for (encoded, pixel) in input.as_chunks_mut::<4>().0.iter_mut().zip(row.iter()) {
+                *encoded = transfer.linearize(pixel);
+            }
         } else {
             for (encoded, pixel) in input.as_chunks_mut::<4>().0.iter_mut().zip(row.iter()) {
                 *encoded = pixel.map(|bits| f16::from_bits(bits) as f32);
-                if let Some(transfer) = &transfer {
-                    transfer.linearize(&mut encoded[..3]);
-                }
             }
         }
         to_working
             .transform(&input[..base.width * input_channels], &mut converted)
             .map_err(cms_error)?;
-        if let Some(gains) = &gains {
+        if let Some((gains, lut)) = &gain {
             let gain_row = &gains[y * row_len..(y + 1) * row_len];
-            let (gain_row, _) = gain_row.as_chunks::<4>();
-            for (pixel, gain) in converted.as_chunks_mut::<4>().0.iter_mut().zip(gain_row) {
-                metadata.apply(pixel, gain, inverse_gamma, weight);
-            }
+            lut.apply_row(
+                converted.as_chunks_mut::<4>().0,
+                gain_row.as_chunks::<4>().0,
+                metadata,
+            );
         }
         let output_row = if let Some(to_output) = &to_output {
             to_output
@@ -677,6 +702,7 @@ mod tests {
     use super::*;
     use crate::decode::PixelFormat;
     use crate::encode::{self, EncodeOptions, EncodePixels};
+    use gainforge::TransferFunction;
 
     const LINEAR_P3: Cicp = Cicp {
         primaries: 12,
@@ -703,6 +729,56 @@ mod tests {
             panic!("expected half-float RGBA");
         };
         std::array::from_fn(|c| f16::from_bits(samples[x * 4 + c]) as f32)
+    }
+
+    #[test]
+    fn gain_lookup_matches_scalar_application_for_every_sample() {
+        let metadata = GainMapMetadata {
+            min: [-1.0, -1.0, 0.5],
+            max: [2.5, -1.0, 3.0],
+            gamma: [0.7, 1.0, 2.5],
+            base_offset: [0.01, 0.15, 0.07],
+            alternate_offset: [0.08, 0.03, 0.02],
+            ..metadata()
+        };
+        let input = [-0.03, 0.25, 1.3, 0.5];
+        let gains: Vec<_> = (0..=u16::MAX)
+            .map(|code| [code, !code, code.wrapping_mul(3), 0])
+            .collect();
+        for weight in [1.0, 0.25, -0.5, -1.0] {
+            let lut = GainMapLut::new(metadata, weight, &gains).unwrap();
+            let mut pixels = vec![input; gains.len()];
+            lut.apply_row(&mut pixels, &gains, metadata);
+            for (pixel, gain) in pixels.iter().zip(&gains) {
+                for c in 0..3 {
+                    let sample = (f32::from(gain[c]) / f32::from(u16::MAX))
+                        .powf(metadata.gamma[c].recip());
+                    let log_gain = metadata.min[c] + (metadata.max[c] - metadata.min[c]) * sample;
+                    let expected = (input[c] + metadata.base_offset[c]) * (log_gain * weight).exp2()
+                        - metadata.alternate_offset[c];
+                    assert_eq!(pixel[c].to_bits(), expected.to_bits());
+                }
+                assert_eq!(pixel[3], input[3]);
+            }
+        }
+    }
+
+    #[test]
+    fn small_gain_map_populates_shared_curves_for_each_channel() {
+        let metadata = GainMapMetadata {
+            gamma: [1.3; 3],
+            base_offset: [0.01, 0.02, 0.03],
+            ..metadata()
+        };
+        let gain = [[32, 200, 2500, 0], [u16::MAX, 143, 32, 0]];
+        let sparse = GainMapLut::new(metadata, 0.5, &gain).unwrap();
+        let dense = GainMapLut::new(metadata, 0.5, &vec![[0; 4]; GAIN_LUT_LEN / 3 + 1]).unwrap();
+        let mut pixels = [[0.3, 0.8, 0.25, 0.5]; 2];
+        let mut expected = pixels;
+        assert_eq!(sparse.channel_indices, [0; 3]);
+        sparse.apply_row(&mut pixels, &gain, metadata);
+        dense.apply_row(&mut expected, &gain, metadata);
+        assert_eq!(pixels, expected);
     }
 
     #[test]

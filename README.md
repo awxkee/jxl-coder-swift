@@ -44,6 +44,9 @@ For platform images, the wrapper uses the image's named color space or its ICC
 profile. Lossy quality 0 selects the encoder default. Lossless Float32 encoding
 requires nonnegative RGB samples.
 
+Still images and animation frames carry the decoder's output color profile into
+Core Graphics so ColorSync can match the image to the display.
+
 Encoding and JPEG transcoding accept `JXLEncoderEffort`. The presets run from
 fastest to slowest as `.ultraFast`, `.fastest`, `.fast`, `.medium`, `.mediumSlow`,
 and `.slow`. The default is `.mediumSlow`.
@@ -71,9 +74,15 @@ let embedded = try JXLCoder.gainMap(data: encoded)
 
 Pass the destination screen's headroom to `decode` or `decodeCGImage`.
 The value is an HDR/SDR luminance ratio, with 1 representing SDR.
-Omit it to decode the base rendition. When applying the gain map, the codec
-returns extended linear Display P3 with half-float components. On iOS 17+,
-set the image view's preferred range to `.high` for full HDR display.
+Omit it to decode the base rendition. A headroom at which the gain map has no
+effect also returns the base rendition with its color profile. When applying the
+gain map, the codec returns extended linear Display P3 with half-float components.
+On iOS 18 and macOS 15 or later, the codec uses Core Image for eligible unscaled sRGB and
+Display P3 images with SDR bases. Core Image tags the result with the requested
+headroom, clamped to the gain map's range. The Rust renderer handles other
+inputs and earlier OS versions.
+
+On iOS 17+, set the image view's preferred range to `.high` for full HDR display.
 [Apple's HDR image display guide](https://developer.apple.com/documentation/UIKit/supporting-hdr-images-in-your-app)
 
 ```swift

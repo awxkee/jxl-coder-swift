@@ -1,12 +1,13 @@
 // Copyright (c) Radzivon Bartoshyk 11/2026. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 
-use crate::decode::{self, Animation, Image, PixelFormat, Pixels};
+use crate::decode::{self, Animation, DecodedFrame, PixelFormat, Pixels};
 use crate::encode::{
     self, AlphaMode, Cicp, DecodingSpeed, EncodeEffort, EncodeInputPixels, EncodeOptions,
     PixelBuffer,
 };
 use crate::gainmap::{self, GainMapInput, GainMapMetadata, GainMapPixels};
+use crate::premultiply;
 use crate::{Error, Result};
 use std::borrow::Cow;
 use std::mem::{align_of, size_of};
@@ -111,10 +112,11 @@ struct ImageView {
     has_alpha: bool,
     has_cicp: bool,
     cicp: [u8; 4],
+    has_embedded_icc: bool,
 }
 
 struct DisplayImage {
-    image: Image,
+    frame: DecodedFrame,
     headroom: f32,
 }
 
@@ -183,7 +185,8 @@ fn pixel_format(format: u8) -> Result<PixelFormat> {
 }
 
 // Core Graphics takes ownership of the display buffer through a data provider.
-fn display_image(mut image: Image) -> Result<Box<DisplayImage>> {
+fn display_image(mut frame: DecodedFrame) -> Result<Box<DisplayImage>> {
+    let image = &mut frame.image;
     let headroom = match (&image.pixels, image.cicp) {
         (Pixels::F16(samples), Some([_, 8, 0, 1] | [1 | 12, 13, 0, 1])) => {
             let peak = samples
@@ -203,33 +206,12 @@ fn display_image(mut image: Image) -> Result<Box<DisplayImage>> {
     };
     if image.has_alpha {
         match &mut image.pixels {
-            Pixels::U8(samples) => {
-                for pixel in samples.as_chunks_mut::<4>().0 {
-                    let alpha = u16::from(pixel[3]);
-                    for channel in &mut pixel[..3] {
-                        *channel = ((u16::from(*channel) * alpha + 127) / 255) as u8;
-                    }
-                }
-            }
-            Pixels::U16(samples) => {
-                for pixel in samples.as_chunks_mut::<4>().0 {
-                    let alpha = u32::from(pixel[3]);
-                    for channel in &mut pixel[..3] {
-                        *channel = ((u32::from(*channel) * alpha + 32767) / 65535) as u16;
-                    }
-                }
-            }
-            Pixels::F16(samples) => {
-                for pixel in samples.as_chunks_mut::<4>().0 {
-                    let alpha = f16::from_bits(pixel[3]);
-                    for channel in &mut pixel[..3] {
-                        *channel = (f16::from_bits(*channel) * alpha).to_bits();
-                    }
-                }
-            }
+            Pixels::U8(samples) => premultiply::premultiply_rgba_u8(samples),
+            Pixels::U16(samples) => premultiply::premultiply_rgba_u16(samples),
+            Pixels::F16(samples) => premultiply::premultiply_rgba_f16(samples),
         }
     }
-    Box::try_new(DisplayImage { image, headroom }).map_err(|_| Error::OutOfMemory)
+    Box::try_new(DisplayImage { frame, headroom }).map_err(|_| Error::OutOfMemory)
 }
 
 #[unsafe(no_mangle)]
@@ -276,25 +258,26 @@ unsafe extern "C" fn jr_decode(
             (0, _) | (_, 0) => return Err(Error::InvalidInput),
             _ => Some((width, height)),
         };
-        let image = if headroom == 0.0 {
-            decode::decode(data, format, target)?
+        let frame = if headroom == 0.0 {
+            decode::decode_frame(data, format, target)?
         } else {
             if !headroom.is_finite() || headroom < 1.0 {
                 return Err(Error::InvalidInput);
             }
             match gainmap::read(data)? {
-                Some(map) => {
+                Some(map) if map.metadata.applies_at(headroom) => {
                     let base = decode::decode(data, PixelFormat::F16, None)?;
                     let image = gainmap::render(base, &map, headroom)?;
-                    match target {
+                    let image = match target {
                         Some(size) => decode::resize(image, size)?,
                         None => image,
-                    }
+                    };
+                    DecodedFrame { image, has_embedded_icc: false }
                 }
-                None => decode::decode(data, format, target)?,
+                _ => decode::decode_frame(data, format, target)?,
             }
         };
-        unsafe { out.as_ptr().write(Box::into_raw(display_image(image)?)) };
+        unsafe { out.as_ptr().write(Box::into_raw(display_image(frame)?)) };
         Ok(())
     })
 }
@@ -303,7 +286,7 @@ unsafe extern "C" fn jr_decode(
 unsafe extern "C" fn jr_image_view(image: *const DisplayImage, out: *mut ImageView) -> i32 {
     status(|| {
         let display = unsafe { image.as_ref() }.ok_or(Error::InvalidInput)?;
-        let image = &display.image;
+        let image = &display.frame.image;
         let out = NonNull::new(out).ok_or(Error::InvalidInput)?;
         let (pixels, bytes_per_component, format) = match &image.pixels {
             Pixels::U8(data) => (data.as_slice(), 1, 1),
@@ -322,6 +305,7 @@ unsafe extern "C" fn jr_image_view(image: *const DisplayImage, out: *mut ImageVi
                 has_alpha: image.has_alpha,
                 has_cicp: image.cicp.is_some(),
                 cicp: image.cicp.unwrap_or_default(),
+                has_embedded_icc: display.frame.has_embedded_icc,
             })
         };
         Ok(())
@@ -528,7 +512,7 @@ unsafe extern "C" fn jr_animation_frame(
         let out = NonNull::new(out).ok_or(Error::InvalidInput)?;
         unsafe {
             out.as_ptr().write(Box::into_raw(display_image(
-                animation.frame(index, PixelFormat::Auto)?,
+                animation.decode_frame(index, PixelFormat::Auto)?,
             )?))
         };
         Ok(())
@@ -545,6 +529,67 @@ unsafe extern "C" fn jr_animation_free(animation: *mut Animation) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encode::EncodePixels;
+    use moxcms::ColorProfile;
+
+    #[test]
+    fn zero_weight_gain_keeps_the_tagged_base_at_the_requested_format_and_size() {
+        let profile = ColorProfile::new_display_p3().encode().unwrap();
+        let map = GainMapInput {
+            pixels: GainMapPixels::U8(&[255]),
+            width: 1,
+            height: 1,
+            channels: 1,
+            metadata: GainMapMetadata {
+                min: [0.0; 3],
+                max: [2.0; 3],
+                gamma: [1.0; 3],
+                base_offset: [0.0; 3],
+                alternate_offset: [0.0; 3],
+                base_headroom: 0.0,
+                alternate_headroom: 2.0,
+                use_base_color_space: 1,
+            },
+            alternate_icc: &[],
+            alternate_cicp: None,
+            lossless: true,
+        }
+        .encode()
+        .unwrap();
+        let input = encode::encode(
+            EncodePixels::Rgba8(&[47, 163, 211, 127]),
+            1,
+            1,
+            4,
+            EncodeOptions {
+                icc: &profile,
+                gain_map: Some(map),
+                lossless: true,
+                ..EncodeOptions::default()
+            },
+        )
+        .unwrap();
+        let decode = |headroom| {
+            let mut output = std::ptr::null_mut();
+            let code = unsafe { jr_decode(Bytes::from_slice(&input), 1, 2, 2, headroom, &mut output) };
+            assert_eq!(code, 0);
+            let frame = unsafe { Box::from_raw(output) }.frame;
+            assert_eq!(frame.has_embedded_icc, headroom <= 1.0);
+            frame.image
+        };
+
+        let base = decode(0.0);
+        let no_gain = decode(1.0);
+        assert_eq!((no_gain.width, no_gain.height), (2, 2));
+        assert_eq!(no_gain.icc, profile);
+        assert_eq!(no_gain.icc, base.icc);
+        assert_eq!(no_gain.cicp, base.cicp);
+        let (Pixels::U8(no_gain), Pixels::U8(base)) = (no_gain.pixels, base.pixels) else {
+            panic!("expected 8-bit base samples");
+        };
+        assert_eq!(no_gain, base);
+        assert!(matches!(decode(2.0).pixels, Pixels::F16(_)));
+    }
 
     #[test]
     fn decoding_speed_presets_map_to_jixel() {

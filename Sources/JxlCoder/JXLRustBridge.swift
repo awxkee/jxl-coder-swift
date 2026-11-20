@@ -81,6 +81,7 @@ extension JXLCICP {
         switch (primaries, transfer) {
         case (1, 13): name = extended ? CGColorSpace.extendedSRGB : CGColorSpace.sRGB
         case (1, 8): name = CGColorSpace.extendedLinearSRGB
+        case (11, 17): name = CGColorSpace.dcip3
         case (12, 13):
             if #available(iOS 14.0, macOS 11.0, *), extended {
                 name = CGColorSpace.extendedDisplayP3
@@ -176,6 +177,49 @@ enum JXLRustBridge {
         return takeData(output)
     }
 
+    private static func colorSpace(for view: JRImageView) throws -> CGColorSpace {
+        let cicp = view.has_cicp ? JXLCICP(view.cicp) : nil
+        let extended = view.format == 3
+        let namedSpace = cicp?.displaySpace(extended: extended)
+        let preferNamedSpace = cicp.map {
+            $0.transfer == 8 || $0.transfer == 16 || $0.transfer == 18 ||
+                (extended && $0.transfer == 13 && ($0.primaries == 1 || $0.primaries == 12))
+        } ?? false
+
+        // Named spaces describe structured HDR encodings directly. Keep an
+        // embedded ICC when ColorSync can use it for these samples.
+        if !view.has_embedded_icc, preferNamedSpace, let namedSpace = namedSpace {
+            return namedSpace
+        }
+        if let icc = view.icc.data {
+            // Callers can retain the color space after releasing the image and its provider.
+            guard let copy = malloc(view.icc.len) else { throw JXLCoderError.outOfMemory }
+            memcpy(copy, icc, view.icc.len)
+            let profile = Data(bytesNoCopy: copy, count: view.icc.len, deallocator: .free)
+            if let space = CGColorSpace(iccData: profile as CFData), space.model == .rgb {
+                if let transfer = cicp?.transfer, transfer == 16 || transfer == 18, let namedSpace = namedSpace {
+                    if #available(iOS 15.0, macOS 12.0, *),
+                       transfer == 16 ? CGColorSpaceIsPQBased(space) : CGColorSpaceIsHLGBased(space) {
+                        return space
+                    }
+                    return namedSpace
+                }
+                if extended, !CGColorSpaceUsesExtendedRange(space) {
+                    if #available(iOS 14.0, macOS 11.0, *), let space = CGColorSpaceCreateExtended(space) {
+                        return space
+                    }
+                    if preferNamedSpace, let namedSpace = namedSpace {
+                        return namedSpace
+                    }
+                }
+                return space
+            }
+        }
+        guard let space = namedSpace ?? (view.has_cicp || view.icc.len != 0 ? nil : CGColorSpace(name: CGColorSpace.sRGB))
+        else { throw JXLCoderError.unsupported }
+        return space
+    }
+
     static func bitmap(_ handle: OpaquePointer?) throws -> CGImage {
         guard let handle = handle else { throw JXLCoderError.decodingFailed }
         var retainedByProvider = false
@@ -184,28 +228,7 @@ enum JXLRustBridge {
         var view = JRImageView()
         try check(jr_image_view(handle, &view))
         guard let bytes = view.pixels.data else { throw JXLCoderError.decodingFailed }
-        let cicp = view.has_cicp ? JXLCICP(view.cicp) : nil
-        // Named HDR spaces let Core Graphics identify the transfer and EDR range.
-        let extended = view.format == 3
-        let usesHDRSpace = cicp.map {
-            $0.transfer == 8 || $0.transfer == 16 || $0.transfer == 18 ||
-                (extended && $0.transfer == 13 && ($0.primaries == 1 || $0.primaries == 12))
-        } ?? false
-        let namedSpace = cicp?.displaySpace(extended: extended)
-        let space: CGColorSpace?
-        if usesHDRSpace, let namedSpace = namedSpace {
-            space = namedSpace
-        } else if let icc = view.icc.data {
-            // Callers can retain the color space after releasing the image and its provider.
-            guard let copy = malloc(view.icc.len) else { throw JXLCoderError.outOfMemory }
-            memcpy(copy, icc, view.icc.len)
-            let profile = Data(bytesNoCopy: copy, count: view.icc.len, deallocator: .free)
-            space = CGColorSpace(iccData: profile as CFData) ?? namedSpace
-        } else {
-            space = namedSpace
-        }
-        guard let space = space ?? (view.has_cicp || view.icc.len != 0 ? nil : CGColorSpace(name: CGColorSpace.sRGB))
-        else { throw JXLCoderError.unsupported }
+        let space = try colorSpace(for: view)
 
         guard let provider = CGDataProvider(dataInfo: UnsafeMutableRawPointer(handle),
                                             data: bytes, size: view.pixels.len,

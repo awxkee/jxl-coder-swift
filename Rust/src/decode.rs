@@ -106,6 +106,11 @@ pub struct Image {
     pub intensity_target: f32,
 }
 
+pub(crate) struct DecodedFrame {
+    pub(crate) image: Image,
+    pub(crate) has_embedded_icc: bool,
+}
+
 /// Dimensions after orientation and metadata of the encoded JPEG XL image.
 pub struct ImageInfo {
     pub width: usize,
@@ -543,7 +548,7 @@ fn read_frame(
     format: JxlDataFormat,
     source_hdr: bool,
     color_managed: bool,
-) -> Result<Image> {
+) -> Result<DecodedFrame> {
     let info = basic(decoder)?;
     let (width, height) = info.size;
     let has_alpha = alpha_index(info).is_some();
@@ -561,17 +566,21 @@ fn read_frame(
         .current_pixel_format()
         .is_some_and(|format| format.color_type == JxlColorType::Cmyk)
     {
-        return read_cmyk_frame(decoder, input, &mut runner, format);
+        return Ok(DecodedFrame {
+            image: read_cmyk_frame(decoder, input, &mut runner, format)?,
+            has_embedded_icc: false,
+        });
     }
-    let (icc, cicp, hdr_transfer) = if color_managed {
+    let (icc, cicp, hdr_transfer, has_embedded_icc) = if color_managed {
         // This is the output profile after set_pixel_format. XYB images with
         // arbitrary embedded ICC profiles may decode into fallback sRGB.
         let profile = decoder.output_color_profile().ok_or(Error::Decode)?;
         let icc = rgb_icc(profile, intensity_target)?;
         let cicp = profile_cicp(profile, &icc);
-        (icc, cicp, hdr_transfer(profile, cicp))
+        let has_embedded_icc = matches!(profile, JxlColorProfile::Icc(_)) && profile.channels() == 3;
+        (icc, cicp, hdr_transfer(profile, cicp), has_embedded_icc)
     } else {
-        (Vec::new(), None, None)
+        (Vec::new(), None, None, false)
     };
     let mut pixels = allocate_pixels(samples, format)?;
     let (bytes, stride) = match &mut pixels {
@@ -587,35 +596,46 @@ fn read_frame(
             pixel[..3].iter().any(|&bits| f16::from_bits(bits) > 1.0f16)
         })
     );
-    Ok(Image {
-        pixels,
-        width,
-        height,
-        has_alpha,
-        icc,
-        cicp,
-        hdr: source_hdr || extended,
-        hdr_transfer,
-        intensity_target,
+    Ok(DecodedFrame {
+        image: Image {
+            pixels,
+            width,
+            height,
+            has_alpha,
+            icc,
+            cicp,
+            hdr: source_hdr || extended,
+            hdr_transfer,
+            intensity_target,
+        },
+        has_embedded_icc,
     })
 }
 
 /// Decode the first visible frame, optionally resizing it to exact dimensions.
 pub fn decode(
-    mut data: &[u8],
+    data: &[u8],
     format: PixelFormat,
     target: Option<(usize, usize)>,
 ) -> Result<Image> {
+    Ok(decode_frame(data, format, target)?.image)
+}
+
+pub(crate) fn decode_frame(
+    mut data: &[u8],
+    format: PixelFormat,
+    target: Option<(usize, usize)>,
+) -> Result<DecodedFrame> {
     if let Some((width, height)) = target {
         sample_count(width, height)?;
     }
     let mut decoder = begin(&mut data, decoder_options())?;
     let (format, hdr) = configure_pixels(&mut decoder, format)?;
-    let image = read_frame(&mut decoder, &mut data, format, hdr, true)?;
-    match target {
-        Some(size) => resize(image, size),
-        None => Ok(image),
+    let mut frame = read_frame(&mut decoder, &mut data, format, hdr, true)?;
+    if let Some(size) = target {
+        frame.image = resize(frame.image, size)?;
     }
+    Ok(frame)
 }
 
 pub(crate) fn gain_samples(mut data: &[u8]) -> Result<(Image, u8)> {
@@ -632,7 +652,7 @@ pub(crate) fn gain_samples(mut data: &[u8]) -> Result<(Image, u8)> {
     };
     let (format, _) = configure_pixels(&mut decoder, PixelFormat::U16)?;
     Ok((
-        read_frame(&mut decoder, &mut data, format, false, false)?,
+        read_frame(&mut decoder, &mut data, format, false, false)?.image,
         channels,
     ))
 }
@@ -773,6 +793,10 @@ impl Animation {
 
     /// Decode a frame and any references it needs by its zero-based index.
     pub fn frame(&self, index: usize, format: PixelFormat) -> Result<Image> {
+        Ok(self.decode_frame(index, format)?.image)
+    }
+
+    pub(crate) fn decode_frame(&self, index: usize, format: PixelFormat) -> Result<DecodedFrame> {
         let target = *self.frames.get(index).ok_or(Error::InvalidInput)?;
         let mut input = self.data.as_slice();
         let mut decoder = begin(&mut input, decoder_options())?;
